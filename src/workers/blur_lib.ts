@@ -80,48 +80,76 @@ function getOffset(imgdata: ImageData, x: number, y: number): number {
     return imgdata.width * y + x
 }
 
-function extrapolateSides(arr: Pixels, count: number, radius: number): void {
-    let leftPixel = getPixel(arr, radius)
-    let rightPixel = getPixel(arr, count + radius - 1)
-    for (let t = 0; t != radius; ++t) setPixel(arr, t, leftPixel)
-    for (let t = 0; t != radius; ++t) setPixel(arr, t + count + radius, rightPixel)
+interface BitmapView {
+    get countLines(): number
+    get countPixelsInLine(): number
+    getOffset(lineIndex: number, pixelIndex: number): number
+    getPixel(lineIndex: number, pixelIndex: number): Pixel
+    setPixel(lineIndex: number, pixelIndex: number, pixel: Pixel): void
 }
 
-function getRowEx(imgdata: ImageData, y: number, radius: number): Pixels {
-    let bitmap = imgdata.data
-    let count = imgdata.width
-    let arr = makePixels(count + radius * 2)
-    for (let x = 0; x != count; ++x) {
-        setPixel(arr, x + radius, getPixel(bitmap, getOffset(imgdata, x, y)))
+abstract class BitmapBase implements BitmapView {
+    readonly imgdata: ImageData
+
+    constructor(imgdata: ImageData) {
+        this.imgdata = imgdata
     }
-    extrapolateSides(arr, count, radius)
-    return arr
-}
 
-function getColEx(imgdata: ImageData, x: number, radius: number): Pixels {
-    let bitmap = imgdata.data
-    let count = imgdata.height
-    let arr = makePixels(count + radius * 2)
-    for (let y = 0; y != count; ++y) {
-        setPixel(arr, y + radius, getPixel(bitmap, getOffset(imgdata, x, y)))
+    abstract get countLines(): number
+    abstract get countPixelsInLine(): number
+    abstract getOffset(lineIndex: number, pixelIndex: number): number
+
+    getPixel(lineIndex: number, pixelIndex: number): Pixel {
+        return getPixel(this.imgdata.data, this.getOffset(lineIndex, pixelIndex))
     }
-    extrapolateSides(arr, count, radius)
-    return arr
-}
-
-function setRow(imgdata: ImageData, y: number, arr: Pixels): void {
-    let bitmap = imgdata.data
-    let count = imgdata.width
-    for (let x = 0; x != count; ++x) {
-        setPixel(bitmap, getOffset(imgdata, x, y), getPixel(arr, x))
+    setPixel(lineIndex: number, pixelIndex: number, pixel: Pixel): void {
+        return setPixel(this.imgdata.data, this.getOffset(lineIndex, pixelIndex), pixel)
     }
 }
 
-function setCol(imgdata: ImageData, x: number, arr: Pixels): void {
-    let bitmap = imgdata.data
-    let count = imgdata.height
-    for (let y = 0; y != count; ++y) {
-        setPixel(bitmap, getOffset(imgdata, x, y), getPixel(arr, y))
+class BitmapRows extends BitmapBase {
+    get countLines(): number {
+        return this.imgdata.height
+    }
+    get countPixelsInLine(): number {
+        return this.imgdata.width
+    }
+    getOffset(lineIndex: number, pixelIndex: number): number {
+        return getOffset(this.imgdata, pixelIndex, lineIndex)
+    }
+}
+
+class BitmapCols extends BitmapBase {
+    get countLines(): number {
+        return this.imgdata.width
+    }
+    get countPixelsInLine(): number {
+        return this.imgdata.height
+    }
+    getOffset(lineIndex: number, pixelIndex: number): number {
+        return getOffset(this.imgdata, lineIndex, pixelIndex)
+    }
+}
+
+function getLineEx(bitmap: BitmapView, lineIndex: number, radius: number): Pixels {
+    let count = bitmap.countPixelsInLine
+    let line = makePixels(count + radius * 2)
+    for (let pix = 0; pix != count; ++pix) {
+        setPixel(line, pix + radius, bitmap.getPixel(lineIndex, pix))
+    }
+    let firstPixel = getPixel(line, 0)
+    let lastPixel = getPixel(line, count + radius -1)
+    for (let pix = 0; pix != radius; ++pix) {
+        setPixel(line, pix, firstPixel)
+        setPixel(line, count + radius + pix, lastPixel)
+    }
+    return line
+}
+
+function setLine(bitmap: BitmapView, lineIndex: number, line: Pixels): void {
+    let count = bitmap.countPixelsInLine
+    for (let pix = 0; pix != count; ++pix) {
+        bitmap.setPixel(lineIndex, pix, getPixel(line, pix))
     }
 }
 
@@ -148,28 +176,37 @@ export function blurLine(src: Pixels, coeffs: BlurCoeffs): Pixels {
     return dst
 }
 
-async function asyncBlurRowsInplace(
-    imgdata: ImageData,
+type ProgressTickFunc = () => void
+
+async function asyncBlurLinesInplace(
+    bitmap: BitmapView,
     coeffs: BlurCoeffs,
     asyncBlurLineSomehow: BlurLineFunc,
     progressTickFunc: ProgressTickFunc,
 ): Promise<void> {
     let diameter = coeffs.length
     let radius = (diameter - 1) / 2
-    let count = imgdata.height
-    let promises = new Array<Promise<void>>(count)
-    for (let y = 0; y != count; ++y) {
-        promises[y] = (async (yy: number) => {
-            let srcline = getRowEx(imgdata, yy, radius)
+    let count = bitmap.countLines
+    let promises = new Array<Promise<void>>(count).fill(null)
+    promises.forEach((_, lineIndex) => {
+        promises[lineIndex] = (async () => {
+            let srcline = getLineEx(bitmap, lineIndex, radius)
             let dstline = await asyncBlurLineSomehow(srcline, coeffs)
-            setRow(imgdata, yy, dstline)
+            setLine(bitmap, lineIndex, dstline)
             progressTickFunc()
-        })(y)
-    }
+        })()
+    })
     await Promise.all(promises)
 }
 
-type ProgressTickFunc = () => void
+async function asyncBlurRowsInplace(
+    imgdata: ImageData,
+    coeffs: BlurCoeffs,
+    asyncBlurLineSomehow: BlurLineFunc,
+    progressTickFunc: ProgressTickFunc,
+): Promise<void> {
+    await asyncBlurLinesInplace(new BitmapRows(imgdata), coeffs, asyncBlurLineSomehow, progressTickFunc)
+}
 
 async function asyncBlurColsInplace(
     imgdata: ImageData,
@@ -177,19 +214,7 @@ async function asyncBlurColsInplace(
     asyncBlurLineSomehow: BlurLineFunc,
     progressTickFunc: ProgressTickFunc,
 ): Promise<void> {
-    let diameter = coeffs.length
-    let radius = (diameter - 1) / 2
-    let count = imgdata.width
-    let promises = new Array<Promise<void>>(count)
-    for (let x = 0; x != count; ++x) {
-        promises[x] = (async (xx: number) => {
-            let srcline = getColEx(imgdata, xx, radius)
-            let dstline = await asyncBlurLineSomehow(srcline, coeffs)
-            setCol(imgdata, xx, dstline)
-            progressTickFunc()
-        })(x)
-    }
-    await Promise.all(promises)
+    await asyncBlurLinesInplace(new BitmapCols(imgdata), coeffs, asyncBlurLineSomehow, progressTickFunc)
 }
 
 function makeProgressTickFunc(total: number, progressFunc: ProgressFunc) {
