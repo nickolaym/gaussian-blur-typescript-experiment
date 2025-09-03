@@ -17,7 +17,7 @@ export async function asyncBlurImpl(imgdata, sigma, options) {
             let request = async (tag, src, _) => {
                 return await new Promise(response => {
                     responses.set(tag, response);
-                    workers[workerIndex].postMessage({ src: src, tag: tag });
+                    workers[workerIndex].postMessage({ src: src, tag: tag }, [src.buffer]);
                 });
             };
             requests[workerIndex] = request;
@@ -49,7 +49,7 @@ export function workerBody() {
             let src = event.data.src;
             let tag = event.data.tag;
             let dst = blurLine(src, coeffs);
-            self.postMessage({ dst: dst, tag: tag });
+            self.postMessage({ dst: dst, tag: tag }, [dst.buffer]);
         };
     };
 }

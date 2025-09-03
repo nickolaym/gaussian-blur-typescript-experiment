@@ -48,7 +48,7 @@ export async function asyncBlurImpl(
             let request = async (tag: Tag, src: Pixels, _: BlurCoeffs): Promise<Pixels> => {
                 return await new Promise<Pixels>(response => {
                     responses.set(tag, response)
-                    workers[workerIndex].postMessage({src: src, tag: tag})
+                    workers[workerIndex].postMessage({src: src, tag: tag}, [src.buffer])
                 })
             }
             requests[workerIndex] = request
@@ -86,7 +86,7 @@ export function workerBody() {
             let src = event.data.src
             let tag = event.data.tag
             let dst = blurLine(src, coeffs)
-            self.postMessage({dst: dst, tag: tag})
+            self.postMessage({dst: dst, tag: tag}, [dst.buffer])
         }
     }
 }
