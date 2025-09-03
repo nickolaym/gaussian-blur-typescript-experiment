@@ -187,14 +187,32 @@ async function asyncBlurLinesInplace(
     let diameter = coeffs.length
     let radius = (diameter - 1) / 2
     let count = bitmap.countLines
-    let promises = new Array<Promise<void>>(count).fill(null)
-    promises.forEach((_, lineIndex) => {
-        promises[lineIndex] = (async () => {
-            let srcline = getLineEx(bitmap, lineIndex, radius)
-            let dstline = await asyncBlurLineSomehow(srcline, coeffs)
-            setLine(bitmap, lineIndex, dstline)
-            progressTickFunc()
-        })()
+
+    let singleLineWork = async (lineIndex) => {
+        let srcline = getLineEx(bitmap, lineIndex, radius)
+        let dstline = await asyncBlurLineSomehow(srcline, coeffs)
+        setLine(bitmap, lineIndex, dstline)
+        progressTickFunc()
+    }
+
+    const countBatches = 100
+    let countInBatch = Math.ceil(count / countBatches)
+    let singleBatchWork = async (batchIndex) => {
+        let batchLineBegin = batchIndex * countInBatch
+        let batchLineEnd = batchLineBegin + countInBatch
+        if (batchLineEnd > count) {
+            batchLineEnd = count
+        }
+
+        // sequentially
+        for (let lineIndex = batchLineBegin; lineIndex != batchLineEnd; ++lineIndex) {
+            await singleLineWork(lineIndex)
+        }
+    }
+
+    let promises = new Array<Promise<void>>(countBatches).fill(null)
+    promises.forEach((_, batchIndex) => {
+        promises[batchIndex] = singleBatchWork(batchIndex)
     })
     await Promise.all(promises)
 }
