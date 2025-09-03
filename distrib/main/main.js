@@ -6,17 +6,19 @@ let urlButton = document.getElementById('urlButton');
 let sigmaInput = document.getElementById('sigmaInput');
 let poolSizeInput = document.getElementById('poolSizeInput');
 let methodSelector = document.getElementById('methodSelector');
+let resetButton = document.getElementById('resetButton');
 let blurButton = document.getElementById('blurButton');
 let progressSpan = document.getElementById('progressSpan');
 let imageSize = document.getElementById('imageSize');
-let srcCanvas = document.getElementById('srcCanvas');
+let srcImage = null;
 let dstCanvas = document.getElementById('dstCanvas');
 async function loadSourceImage() {
     let url = srcUrl.value;
     try {
         let img = await asyncLoadImage(url);
+        srcImage = img;
         imageSize.innerText = `${img.width} x ${img.height}`;
-        putImageIntoCanvas(img, srcCanvas);
+        putImageIntoCanvas(img, dstCanvas);
     }
     catch (error) {
         alert(error);
@@ -29,14 +31,19 @@ srcFile.onchange = async () => {
 urlButton.onclick = async () => {
     await loadSourceImage();
 };
+resetButton.onclick = async () => {
+    if (!srcImage)
+        return;
+    putImageIntoCanvas(srcImage, dstCanvas);
+};
 blurButton.onclick = async () => {
+    if (!srcImage || srcImage.width == 0 || srcImage.height == 0) {
+        alert('no image to blur');
+        return;
+    }
     let sigma = parseFloat(sigmaInput.value);
     if (isNaN(sigma) || sigma < 0) {
         alert(`invalid sigma value ${sigma}`);
-        return;
-    }
-    if (srcCanvas.width == 0 || srcCanvas.height == 0) {
-        alert('no image to blur');
         return;
     }
     let poolSize = parseInt(poolSizeInput.value);
@@ -49,7 +56,7 @@ blurButton.onclick = async () => {
     }
     progressSpan.innerText = 'start blurring...';
     let perf0 = performance.now();
-    let srcImageData = getImageDataFromCanvas(srcCanvas);
+    let srcImageData = getImageDataFromCanvas(dstCanvas);
     let options = {
         poolSize: poolSize,
         progressFunc: (percent) => {

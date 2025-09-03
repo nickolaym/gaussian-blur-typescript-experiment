@@ -20,20 +20,22 @@ let sigmaInput = document.getElementById('sigmaInput') as HTMLInputElement
 let poolSizeInput = document.getElementById('poolSizeInput') as HTMLInputElement
 let methodSelector = document.getElementById('methodSelector') as HTMLSelectElement
 
+let resetButton = document.getElementById('resetButton') as HTMLButtonElement
 let blurButton = document.getElementById('blurButton') as HTMLButtonElement
 let progressSpan = document.getElementById('progressSpan') as HTMLSpanElement
 
 let imageSize = document.getElementById('imageSize') as HTMLSpanElement
 
-let srcCanvas = document.getElementById('srcCanvas') as HTMLCanvasElement
+let srcImage: HTMLImageElement = null
 let dstCanvas = document.getElementById('dstCanvas') as HTMLCanvasElement
 
 async function loadSourceImage() {
     let url = srcUrl.value
     try {
         let img = await asyncLoadImage(url)
+        srcImage = img
         imageSize.innerText = `${img.width} x ${img.height}`
-        putImageIntoCanvas(img, srcCanvas)
+        putImageIntoCanvas(img, dstCanvas)
     } catch (error) {
         alert(error)
     }
@@ -48,14 +50,20 @@ urlButton.onclick = async () => {
     await loadSourceImage()
 }
 
+resetButton.onclick = async () => {
+    if (!srcImage) return
+    putImageIntoCanvas(srcImage, dstCanvas)
+}
+
 blurButton.onclick = async () => {
+    if (!srcImage || srcImage.width == 0 || srcImage.height == 0) {
+        alert('no image to blur')
+        return
+    }
+
     let sigma = parseFloat(sigmaInput.value)
     if (isNaN(sigma) || sigma < 0) {
         alert(`invalid sigma value ${sigma}`)
-        return
-    }
-    if (srcCanvas.width == 0 || srcCanvas.height == 0) {
-        alert('no image to blur')
         return
     }
     let poolSize = parseInt(poolSizeInput.value)
@@ -69,7 +77,7 @@ blurButton.onclick = async () => {
 
     progressSpan.innerText = 'start blurring...'
     let perf0 = performance.now()
-    let srcImageData = getImageDataFromCanvas(srcCanvas)
+    let srcImageData = getImageDataFromCanvas(dstCanvas)
     let options = {
         poolSize: poolSize,
         progressFunc: (percent: number) => {
