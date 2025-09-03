@@ -25,45 +25,50 @@ export function makeBlurCoeffs(sigma) {
     });
     return arr;
 }
-function makePixels(n) {
-    return new Uint8ClampedArray(n * 4);
-}
-function countPixels(line) {
-    let n = line.length;
-    if (n % 4 != 0) {
-        throw Error(`size of pixels ${n} is not multiple of 4`);
+export class Pixels {
+    data;
+    constructor(data) {
+        if (data.length % 4 != 0) {
+            throw new Error(`broken array of quadruplets of size ${data.length}`);
+        }
+        this.data = data;
     }
-    return n / 4;
-}
-function getPixel(arr, i) {
-    let offset = i * 4;
-    return [
-        arr[offset + 0],
-        arr[offset + 1],
-        arr[offset + 2],
-        arr[offset + 3],
-    ];
-}
-function setPixel(arr, i, pixel) {
-    let offset = i * 4;
-    arr[offset + 0] = pixel[0];
-    arr[offset + 1] = pixel[1];
-    arr[offset + 2] = pixel[2];
-    arr[offset + 3] = pixel[3];
+    static create(n) {
+        return new Pixels(new Uint8ClampedArray(n * 4));
+    }
+    get length() { return this.data.length / 4; }
+    getPixel(i) {
+        let offset = i * 4;
+        return [
+            this.data[offset + 0],
+            this.data[offset + 1],
+            this.data[offset + 2],
+            this.data[offset + 3],
+        ];
+    }
+    setPixel(i, pixel) {
+        let offset = i * 4;
+        this.data[offset + 0] = pixel[0];
+        this.data[offset + 1] = pixel[1];
+        this.data[offset + 2] = pixel[2];
+        this.data[offset + 3] = pixel[3];
+    }
 }
 function getOffset(imgdata, x, y) {
     return imgdata.width * y + x;
 }
 class BitmapBase {
     imgdata;
+    pixels;
     constructor(imgdata) {
         this.imgdata = imgdata;
+        this.pixels = new Pixels(imgdata.data);
     }
     getPixel(lineIndex, pixelIndex) {
-        return getPixel(this.imgdata.data, this.getOffset(lineIndex, pixelIndex));
+        return this.pixels.getPixel(this.getOffset(lineIndex, pixelIndex));
     }
     setPixel(lineIndex, pixelIndex, pixel) {
-        return setPixel(this.imgdata.data, this.getOffset(lineIndex, pixelIndex), pixel);
+        return this.pixels.setPixel(this.getOffset(lineIndex, pixelIndex), pixel);
     }
 }
 class BitmapRows extends BitmapBase {
@@ -90,39 +95,39 @@ class BitmapCols extends BitmapBase {
 }
 function getLineEx(bitmap, lineIndex, radius) {
     let count = bitmap.countPixelsInLine;
-    let line = makePixels(count + radius * 2);
+    let line = Pixels.create(count + radius * 2);
     for (let pix = 0; pix != count; ++pix) {
-        setPixel(line, pix + radius, bitmap.getPixel(lineIndex, pix));
+        line.setPixel(pix + radius, bitmap.getPixel(lineIndex, pix));
     }
-    let firstPixel = getPixel(line, 0);
-    let lastPixel = getPixel(line, count + radius - 1);
+    let firstPixel = line.getPixel(radius);
+    let lastPixel = line.getPixel(count + radius - 1);
     for (let pix = 0; pix != radius; ++pix) {
-        setPixel(line, pix, firstPixel);
-        setPixel(line, count + radius + pix, lastPixel);
+        line.setPixel(pix, firstPixel);
+        line.setPixel(count + radius + pix, lastPixel);
     }
     return line;
 }
 function setLine(bitmap, lineIndex, line) {
     let count = bitmap.countPixelsInLine;
     for (let pix = 0; pix != count; ++pix) {
-        bitmap.setPixel(lineIndex, pix, getPixel(line, pix));
+        bitmap.setPixel(lineIndex, pix, line.getPixel(pix));
     }
 }
 export function blurLine(src, coeffs) {
     let diameter = coeffs.length;
-    let count = countPixels(src) - diameter + 1;
-    let dst = makePixels(count);
+    let count = src.length - diameter + 1;
+    let dst = Pixels.create(count);
     for (let i = 0; i != count; ++i) {
         let weightedPixel = [0, 0, 0, 0]; // float-point accumulators
         for (let j = 0; j != diameter; ++j) {
             let coeff = coeffs[j];
-            let pixel = getPixel(src, i + j);
+            let pixel = src.getPixel(i + j);
             weightedPixel[0] += pixel[0] * coeff;
             weightedPixel[1] += pixel[1] * coeff;
             weightedPixel[2] += pixel[2] * coeff;
             weightedPixel[3] += pixel[3] * coeff;
         }
-        setPixel(dst, i, weightedPixel.map(Math.floor));
+        dst.setPixel(i, weightedPixel.map(Math.floor));
     }
     return dst;
 }
@@ -144,6 +149,9 @@ async function asyncBlurLinesInplace(bitmap, coeffs, asyncBlurLineSomehow, optio
     let countInBatch = Math.ceil(count / countBatches);
     let singleBatchWork = async (batchIndex) => {
         let batchLineBegin = batchIndex * countInBatch;
+        if (batchLineBegin > count) {
+            return;
+        }
         let batchLineEnd = batchLineBegin + countInBatch;
         if (batchLineEnd > count) {
             batchLineEnd = count;

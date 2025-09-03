@@ -1,5 +1,6 @@
 import {
     Pixels,
+    PixelsArray,
     BlurCoeffs,
     BlurLineFunc,
     asyncBlurInplace,
@@ -15,12 +16,12 @@ type WorkerRequestInit = {
 }
 
 type WorkerRequest = {
-    src: Pixels
+    src: PixelsArray
     tag: Tag
 }
 
 type WorkerResponse = {
-    dst: Pixels
+    dst: PixelsArray
     tag: Tag
 }
 
@@ -48,12 +49,12 @@ export async function asyncBlurImpl(
             let request = async (tag: Tag, src: Pixels, _: BlurCoeffs): Promise<Pixels> => {
                 return await new Promise<Pixels>(response => {
                     responses.set(tag, response)
-                    workers[workerIndex].postMessage({src: src, tag: tag}, [src.buffer])
+                    workers[workerIndex].postMessage({src: src.data, tag: tag}, [src.data.buffer])
                 })
             }
             requests[workerIndex] = request
             worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
-                let dst = event.data.dst
+                let dst = new Pixels(event.data.dst)
                 let tag = event.data.tag
                 responses.get(tag)!(dst)
                 responses.delete(tag)
@@ -83,10 +84,10 @@ export function workerBody() {
         // no pong for this ping
 
         self.onmessage = (event: MessageEvent<WorkerRequest>) => {
-            let src = event.data.src
+            let src = new Pixels(event.data.src)
             let tag = event.data.tag
             let dst = blurLine(src, coeffs)
-            self.postMessage({dst: dst, tag: tag}, [dst.buffer])
+            self.postMessage({dst: dst.data, tag: tag}, [dst.data.buffer])
         }
     }
 }

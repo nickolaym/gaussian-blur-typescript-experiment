@@ -1,4 +1,4 @@
-import { asyncBlurInplace, blurLine } from '../blur_lib.js';
+import { Pixels, asyncBlurInplace, blurLine } from '../blur_lib.js';
 import { newModuleWorker } from '../worker_lib.js';
 export async function asyncBlurImpl(imgdata, sigma, options) {
     const poolSize = (options.poolSize ? options.poolSize : 16);
@@ -17,12 +17,12 @@ export async function asyncBlurImpl(imgdata, sigma, options) {
             let request = async (tag, src, _) => {
                 return await new Promise(response => {
                     responses.set(tag, response);
-                    workers[workerIndex].postMessage({ src: src, tag: tag }, [src.buffer]);
+                    workers[workerIndex].postMessage({ src: src.data, tag: tag }, [src.data.buffer]);
                 });
             };
             requests[workerIndex] = request;
             worker.onmessage = (event) => {
-                let dst = event.data.dst;
+                let dst = new Pixels(event.data.dst);
                 let tag = event.data.tag;
                 responses.get(tag)(dst);
                 responses.delete(tag);
@@ -46,10 +46,10 @@ export function workerBody() {
         let coeffs = event.data.coeffs;
         // no pong for this ping
         self.onmessage = (event) => {
-            let src = event.data.src;
+            let src = new Pixels(event.data.src);
             let tag = event.data.tag;
             let dst = blurLine(src, coeffs);
-            self.postMessage({ dst: dst, tag: tag }, [dst.buffer]);
+            self.postMessage({ dst: dst.data, tag: tag }, [dst.data.buffer]);
         };
     };
 }

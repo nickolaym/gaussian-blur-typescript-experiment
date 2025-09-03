@@ -1,14 +1,14 @@
 import { asyncBlurInplace, blurLine } from '../blur_lib.js';
-import { newModuleWorker } from '../worker_lib.js';
 export async function asyncBlurImpl(imgdata, sigma, options) {
-    options.progressFunc(0);
-    let worker = newModuleWorker(import.meta.resolve('./body.js'));
-    imgdata = await new Promise(response => {
-        worker.onmessage = (event) => response(event.data.dst);
-        worker.postMessage({ src: imgdata, sigma: sigma });
-    });
-    options.progressFunc(100);
-    worker.terminate();
+    // options.progressFunc(0)
+    // let worker = newModuleWorker(import.meta.resolve('./body.js'))
+    // imgdata = await new Promise<ImageData>(response => {
+    //     worker.onmessage = (event: MessageEvent<WorkerResponse>) => response(event.data.dst)
+    //     worker.postMessage({src: imgdata, sigma: sigma})
+    // })
+    // options.progressFunc(100)
+    // worker.terminate()
+    await asyncBlurInplace(imgdata, sigma, blurLine, options);
     return imgdata;
 }
 export function workerBody() {

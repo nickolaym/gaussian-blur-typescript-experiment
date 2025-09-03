@@ -45,40 +45,50 @@ export function makeBlurCoeffs(sigma: number): BlurCoeffs {
 // A pixel is an array of 4 numbers in range 0..255, byte or float
 type Pixel = number[]  // of size 4
 
-// Pixels are a dense array, compatible with ImageData.data for uniform work
-export type Pixels = Uint8ClampedArray
+// Pixels  are a dense array, compatible with ImageData.data for uniform work
 
-function makePixels(n: number): Pixels {
-    return new Uint8ClampedArray(n * 4)
-}
-function countPixels(line: Pixels): number {
-    let n = line.length
-    if (n % 4 != 0) {
-        throw Error(`size of pixels ${n} is not multiple of 4`)
+export type PixelsArray = Uint8ClampedArray
+
+export class Pixels {
+    readonly data: PixelsArray
+
+    constructor(data: PixelsArray) {
+        if (data.length % 4 != 0) {
+            throw new Error(`broken array of quadruplets of size ${data.length}`)
+        }
+        this.data = data
     }
-    return n / 4
-}
 
-function getPixel(arr: Pixels, i: number): Pixel {
-    let offset = i * 4
-    return [
-        arr[offset + 0],
-        arr[offset + 1],
-        arr[offset + 2],
-        arr[offset + 3],
-    ]
-}
-function setPixel(arr: Pixels, i: number, pixel: Pixel): void {
-    let offset = i * 4
-    arr[offset + 0] = pixel[0]
-    arr[offset + 1] = pixel[1]
-    arr[offset + 2] = pixel[2]
-    arr[offset + 3] = pixel[3]
+    static create(n: number) {
+        return new Pixels(new Uint8ClampedArray(n * 4))
+    }
+
+    get length(): number { return this.data.length / 4 }
+
+    getPixel(i: number): Pixel {
+        let offset = i * 4
+        return [
+            this.data[offset + 0],
+            this.data[offset + 1],
+            this.data[offset + 2],
+            this.data[offset + 3],
+        ]
+    }
+    setPixel(i: number, pixel: Pixel) {
+        let offset = i * 4
+        this.data[offset + 0] = pixel[0]
+        this.data[offset + 1] = pixel[1]
+        this.data[offset + 2] = pixel[2]
+        this.data[offset + 3] = pixel[3]
+    }
 }
 
 function getOffset(imgdata: ImageData, x: number, y: number): number {
     return imgdata.width * y + x
 }
+
+// bitmap view treats a bitmap as series of scanlines
+// (by rows or by columns)
 
 interface BitmapView {
     get countLines(): number
@@ -90,9 +100,11 @@ interface BitmapView {
 
 abstract class BitmapBase implements BitmapView {
     readonly imgdata: ImageData
+    readonly pixels: Pixels
 
     constructor(imgdata: ImageData) {
         this.imgdata = imgdata
+        this.pixels = new Pixels(imgdata.data)
     }
 
     abstract get countLines(): number
@@ -100,10 +112,10 @@ abstract class BitmapBase implements BitmapView {
     abstract getOffset(lineIndex: number, pixelIndex: number): number
 
     getPixel(lineIndex: number, pixelIndex: number): Pixel {
-        return getPixel(this.imgdata.data, this.getOffset(lineIndex, pixelIndex))
+        return this.pixels.getPixel(this.getOffset(lineIndex, pixelIndex))
     }
     setPixel(lineIndex: number, pixelIndex: number, pixel: Pixel): void {
-        return setPixel(this.imgdata.data, this.getOffset(lineIndex, pixelIndex), pixel)
+        return this.pixels.setPixel(this.getOffset(lineIndex, pixelIndex), pixel)
     }
 }
 
@@ -133,15 +145,15 @@ class BitmapCols extends BitmapBase {
 
 function getLineEx(bitmap: BitmapView, lineIndex: number, radius: number): Pixels {
     let count = bitmap.countPixelsInLine
-    let line = makePixels(count + radius * 2)
+    let line = Pixels.create(count + radius * 2)
     for (let pix = 0; pix != count; ++pix) {
-        setPixel(line, pix + radius, bitmap.getPixel(lineIndex, pix))
+        line.setPixel(pix + radius, bitmap.getPixel(lineIndex, pix))
     }
-    let firstPixel = getPixel(line, 0)
-    let lastPixel = getPixel(line, count + radius -1)
+    let firstPixel = line.getPixel(radius)
+    let lastPixel = line.getPixel(count + radius -1)
     for (let pix = 0; pix != radius; ++pix) {
-        setPixel(line, pix, firstPixel)
-        setPixel(line, count + radius + pix, lastPixel)
+        line.setPixel(pix, firstPixel)
+        line.setPixel(count + radius + pix, lastPixel)
     }
     return line
 }
@@ -149,7 +161,7 @@ function getLineEx(bitmap: BitmapView, lineIndex: number, radius: number): Pixel
 function setLine(bitmap: BitmapView, lineIndex: number, line: Pixels): void {
     let count = bitmap.countPixelsInLine
     for (let pix = 0; pix != count; ++pix) {
-        bitmap.setPixel(lineIndex, pix, getPixel(line, pix))
+        bitmap.setPixel(lineIndex, pix, line.getPixel(pix))
     }
 }
 
@@ -159,19 +171,19 @@ export type BlurLineFunc = (src: Pixels, coeffs: BlurCoeffs) => (Pixels | Promis
 
 export function blurLine(src: Pixels, coeffs: BlurCoeffs): Pixels {
     let diameter = coeffs.length
-    let count = countPixels(src) - diameter + 1
-    let dst = makePixels(count)
+    let count = src.length - diameter + 1
+    let dst = Pixels.create(count)
     for (let i = 0; i != count; ++i) {
         let weightedPixel = [0, 0, 0, 0]  // float-point accumulators
         for (let j = 0; j != diameter; ++j) {
             let coeff = coeffs[j]
-            let pixel = getPixel(src, i + j)
+            let pixel = src.getPixel(i + j)
             weightedPixel[0] += pixel[0] * coeff
             weightedPixel[1] += pixel[1] * coeff
             weightedPixel[2] += pixel[2] * coeff
             weightedPixel[3] += pixel[3] * coeff
         }
-        setPixel(dst, i, weightedPixel.map(Math.floor))
+        dst.setPixel(i, weightedPixel.map(Math.floor))
     }
     return dst
 }
@@ -205,6 +217,9 @@ async function asyncBlurLinesInplace(
     let countInBatch = Math.ceil(count / countBatches)
     let singleBatchWork = async (batchIndex) => {
         let batchLineBegin = batchIndex * countInBatch
+        if (batchLineBegin > count) {
+            return
+        }
         let batchLineEnd = batchLineBegin + countInBatch
         if (batchLineEnd > count) {
             batchLineEnd = count
