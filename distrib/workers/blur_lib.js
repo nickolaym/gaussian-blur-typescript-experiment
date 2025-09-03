@@ -126,7 +126,7 @@ export function blurLine(src, coeffs) {
     }
     return dst;
 }
-async function asyncBlurLinesInplace(bitmap, coeffs, asyncBlurLineSomehow, progressTickFunc) {
+async function asyncBlurLinesInplace(bitmap, coeffs, asyncBlurLineSomehow, options, progressTickFunc) {
     let diameter = coeffs.length;
     let radius = (diameter - 1) / 2;
     let count = bitmap.countLines;
@@ -136,7 +136,11 @@ async function asyncBlurLinesInplace(bitmap, coeffs, asyncBlurLineSomehow, progr
         setLine(bitmap, lineIndex, dstline);
         progressTickFunc();
     };
-    const countBatches = 100;
+    // if countBatches is greater than number of threads,
+    // we will put data into message queues
+    // Huge difference overfills queues, subtle difference makes threads waiting
+    const countThreads = (options.poolSize > 0 ? options.poolSize : 16);
+    const countBatches = countThreads * 2;
     let countInBatch = Math.ceil(count / countBatches);
     let singleBatchWork = async (batchIndex) => {
         let batchLineBegin = batchIndex * countInBatch;
@@ -155,11 +159,11 @@ async function asyncBlurLinesInplace(bitmap, coeffs, asyncBlurLineSomehow, progr
     });
     await Promise.all(promises);
 }
-async function asyncBlurRowsInplace(imgdata, coeffs, asyncBlurLineSomehow, progressTickFunc) {
-    await asyncBlurLinesInplace(new BitmapRows(imgdata), coeffs, asyncBlurLineSomehow, progressTickFunc);
+async function asyncBlurRowsInplace(imgdata, coeffs, asyncBlurLineSomehow, options, progressTickFunc) {
+    await asyncBlurLinesInplace(new BitmapRows(imgdata), coeffs, asyncBlurLineSomehow, options, progressTickFunc);
 }
-async function asyncBlurColsInplace(imgdata, coeffs, asyncBlurLineSomehow, progressTickFunc) {
-    await asyncBlurLinesInplace(new BitmapCols(imgdata), coeffs, asyncBlurLineSomehow, progressTickFunc);
+async function asyncBlurColsInplace(imgdata, coeffs, asyncBlurLineSomehow, options, progressTickFunc) {
+    await asyncBlurLinesInplace(new BitmapCols(imgdata), coeffs, asyncBlurLineSomehow, options, progressTickFunc);
 }
 function makeProgressTickFunc(total, progressFunc) {
     let tick = 0;
@@ -176,6 +180,6 @@ function makeProgressTickFunc(total, progressFunc) {
 export async function asyncBlurInplace(imgdata, sigma, asyncBlurLineSomehow, options) {
     let coeffs = makeBlurCoeffs(sigma);
     let progressTickFunc = makeProgressTickFunc(imgdata.width + imgdata.height, options.progressFunc);
-    await asyncBlurColsInplace(imgdata, coeffs, asyncBlurLineSomehow, progressTickFunc);
-    await asyncBlurRowsInplace(imgdata, coeffs, asyncBlurLineSomehow, progressTickFunc);
+    await asyncBlurColsInplace(imgdata, coeffs, asyncBlurLineSomehow, options, progressTickFunc);
+    await asyncBlurRowsInplace(imgdata, coeffs, asyncBlurLineSomehow, options, progressTickFunc);
 }

@@ -182,6 +182,7 @@ async function asyncBlurLinesInplace(
     bitmap: BitmapView,
     coeffs: BlurCoeffs,
     asyncBlurLineSomehow: BlurLineFunc,
+    options: BlurWorkerOptions,
     progressTickFunc: ProgressTickFunc,
 ): Promise<void> {
     let diameter = coeffs.length
@@ -195,7 +196,12 @@ async function asyncBlurLinesInplace(
         progressTickFunc()
     }
 
-    const countBatches = 100
+    // if countBatches is greater than number of threads,
+    // we will put data into message queues
+    // Huge difference overfills queues, subtle difference makes threads waiting
+    const countThreads = (options.poolSize > 0 ? options.poolSize : 16)
+    const countBatches = countThreads * 2
+
     let countInBatch = Math.ceil(count / countBatches)
     let singleBatchWork = async (batchIndex) => {
         let batchLineBegin = batchIndex * countInBatch
@@ -221,18 +227,20 @@ async function asyncBlurRowsInplace(
     imgdata: ImageData,
     coeffs: BlurCoeffs,
     asyncBlurLineSomehow: BlurLineFunc,
+    options: BlurWorkerOptions,
     progressTickFunc: ProgressTickFunc,
 ): Promise<void> {
-    await asyncBlurLinesInplace(new BitmapRows(imgdata), coeffs, asyncBlurLineSomehow, progressTickFunc)
+    await asyncBlurLinesInplace(new BitmapRows(imgdata), coeffs, asyncBlurLineSomehow, options, progressTickFunc)
 }
 
 async function asyncBlurColsInplace(
     imgdata: ImageData,
     coeffs: BlurCoeffs,
     asyncBlurLineSomehow: BlurLineFunc,
+    options: BlurWorkerOptions,
     progressTickFunc: ProgressTickFunc,
 ): Promise<void> {
-    await asyncBlurLinesInplace(new BitmapCols(imgdata), coeffs, asyncBlurLineSomehow, progressTickFunc)
+    await asyncBlurLinesInplace(new BitmapCols(imgdata), coeffs, asyncBlurLineSomehow, options, progressTickFunc)
 }
 
 function makeProgressTickFunc(total: number, progressFunc: ProgressFunc) {
@@ -258,6 +266,6 @@ export async function asyncBlurInplace(
 
     let progressTickFunc = makeProgressTickFunc(imgdata.width + imgdata.height, options.progressFunc)
 
-    await asyncBlurColsInplace(imgdata, coeffs, asyncBlurLineSomehow, progressTickFunc)
-    await asyncBlurRowsInplace(imgdata, coeffs, asyncBlurLineSomehow, progressTickFunc)
+    await asyncBlurColsInplace(imgdata, coeffs, asyncBlurLineSomehow, options, progressTickFunc)
+    await asyncBlurRowsInplace(imgdata, coeffs, asyncBlurLineSomehow, options, progressTickFunc)
 }
