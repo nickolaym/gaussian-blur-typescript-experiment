@@ -48,14 +48,15 @@ blurButton.onclick = async () => {
         method = methodAdaptive;
     }
     progressSpan.innerText = 'start blurring...';
+    let perf0 = performance.now();
+    let srcImageData = getImageDataFromCanvas(srcCanvas);
     let options = {
         poolSize: poolSize,
         progressFunc: (percent) => {
             progressSpan.innerText = `${percent} % of work done...`;
+            putImageDataIntoCanvas(srcImageData, dstCanvas);
         }
     };
-    let perf0 = performance.now();
-    let srcImageData = getImageDataFromCanvas(srcCanvas);
     let dstImageData = await asyncBlur(srcImageData, sigma, options, method);
     putImageDataIntoCanvas(dstImageData, dstCanvas);
     let perf1 = performance.now();
