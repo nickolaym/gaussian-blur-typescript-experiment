@@ -1,0 +1,74 @@
+<html>
+    <title>Gaussian blur example</title>
+    <body>
+        <div>
+            <table border="0">
+                <tr>
+                    <td>
+                        <label for="srcFile">Load an image from local file:</label>
+                    </td>
+                    <td>
+                        <input id="srcFile" type="file" accept="imaga/*">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="srcUrl">Load an image from internet:</label>
+                    </td>
+                    <td>
+                        <input id="srcUrl" type="text">
+                        <button id="urlButton">Load!</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="sigmaInput">Sigma</label>
+                    </td>
+                    <td>
+                        <input id="sigmaInput" type="text" value="1">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="poolSize">thread pool size</label>
+                    </td>
+                    <td>
+                        <input id="poolSizeInput" type="text" value="16">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="methodSelector">method</label>
+                    </td>
+                    <td>
+                        <select id="methodSelector">
+                            <option value="adaptive">adaptive (default)</option>
+                            <option value="single">single thread</option>
+                            <option value="workers">new worker for each line</option>
+                            <option value="pool">fixed pool of threads</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <button id="blurButton">Blur</button>
+                    </td>
+                    <td>
+                        <span id="progressSpan"></span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <div>
+            Source image: <span id="imageSize">???</span>
+            <br>
+            <canvas id="srcCanvas" style="border:1px solid red" width="0" height="0"></canvas>
+            <hr>
+            Blurred image:
+            <br>
+            <canvas id="dstCanvas" style="border:1px solid green"></canvas>
+        </div>
+    </body>
+
+    <script type="module" src="../distrib/main/main.js"></script>
+</html>

@@ -1,0 +1,18 @@
+{
+  "name": "gaussian-blur",
+  "version": "1.0.0",
+  "description": "homework for application to huawei-spb",
+  "main": "distrib/main/main.js",
+  "scripts": {
+    "build": "tsc -b tsmain",
+    "http-server": "node node_modules/http-server/bin/http-server -с 0 --cors"
+  },
+  "author": "Nikolay Merkin",
+  "license": "ISC",
+  "dependencies": {
+    "commander": "^14.0.0",
+    "http-server": "^14.1.1",
+    "typescript": "^5.9.2"
+  },
+  "type": "module"
+}

@@ -1,0 +1,23 @@
+import { asyncBlurInplace, blurLine } from '../blur_lib.js';
+import { newModuleWorker } from '../worker_lib.js';
+export async function asyncBlurImpl(imgdata, sigma, options) {
+    await asyncBlurInplace(imgdata, sigma, asyncBlurLine, options);
+    return imgdata;
+}
+async function asyncBlurLine(src, coeffs) {
+    let worker = newModuleWorker(import.meta.resolve('./body.js'));
+    let dst = await new Promise(response => {
+        worker.onmessage = (event) => response(event.data.dst);
+        worker.postMessage({ src: src, coeffs: coeffs }, [src.buffer]);
+    });
+    worker.terminate();
+    return dst;
+}
+export function workerBody() {
+    self.onmessage = async (event) => {
+        let src = event.data.src;
+        let coeffs = event.data.coeffs;
+        let dst = blurLine(src, coeffs);
+        self.postMessage({ dst: dst }, [dst.buffer]);
+    };
+}

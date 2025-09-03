@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "composite": true,
+        "target": "esnext",
+        "lib": ["es2015", "dom"],
+        "outDir": "../../distrib/main",
+    },
+    "references": [
+        {"path": "../workers"},
+        {"path": "../dom"},
+    ]
+}
