@@ -5,7 +5,7 @@
   "main": "distrib/main/main.js",
   "scripts": {
     "build": "tsc -b tsmain",
-    "http-server": "node node_modules/http-server/bin/http-server -с 0 --cors"
+    "http-server": "node node_modules/http-server/bin/http-server -с 10 --cors"
   },
   "author": "Nikolay Merkin",
   "license": "ISC",

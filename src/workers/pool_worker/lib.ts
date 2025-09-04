@@ -8,6 +8,7 @@ import {
 } from '../blur_lib.js'
 import { newModuleWorker } from '../worker_lib.js'
 import { BlurWorkerOptions } from '../options.js'
+import { orStop } from '../stop.js'
 
 type Tag = number
 
@@ -47,10 +48,10 @@ export async function asyncBlurImpl(
             // now we are ready to do regual requests
             // regular request is a ping-pong with corresponding worker
             let request = async (tag: Tag, src: Pixels, _: BlurCoeffs): Promise<Pixels> => {
-                return await new Promise<Pixels>(response => {
+                return await orStop(options.stopPromise, new Promise<Pixels>(response => {
                     responses.set(tag, response)
                     workers[workerIndex].postMessage({src: src.data, tag: tag}, [src.data.buffer])
-                })
+                }))
             }
             requests[workerIndex] = request
             worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
@@ -61,19 +62,25 @@ export async function asyncBlurImpl(
             }
 
             // so we do!
-            return await request(tag, src, coeffs)
+            return await orStop(options.stopPromise, request(tag, src, coeffs))
         }
     })
 
     let asyncBlurLine = async (src: Pixels, coeffs: BlurCoeffs): Promise<Pixels> => {
         let tag = nextTag++
-        return await requests[tag % poolSize](tag, src, coeffs)
+        return await orStop(options.stopPromise, requests[tag % poolSize](tag, src, coeffs))
     }
 
-    await asyncBlurInplace(imgdata, sigma, asyncBlurLine, options)
-
-    workers.forEach(worker => worker.terminate())
-    return imgdata
+    try {
+        await asyncBlurInplace(imgdata, sigma, asyncBlurLine, options)
+        return imgdata
+    } catch (e) {
+        console.warn('interrupted thread pool:', e)
+        throw e
+    } finally {
+        console.log('terminate thread pool')
+        workers.forEach(worker => worker.terminate())
+    }
 }
 
 export function workerBody() {

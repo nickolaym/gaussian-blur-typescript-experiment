@@ -1,6 +1,7 @@
 import { asyncBlurInplace, blurLine } from '../blur_lib.js'
 import { newModuleWorker } from '../worker_lib.js'
 import { BlurWorkerOptions } from '../options.js'
+import { orStop } from '../stop.js'
 
 type WorkerRequest = {
     src: ImageData
@@ -16,15 +17,22 @@ export async function asyncBlurImpl(
     sigma: number,
     options: BlurWorkerOptions,
 ): Promise<ImageData> {
-    options.progressFunc(0)
     let worker = newModuleWorker(import.meta.resolve('./body.js'))
-    imgdata = await new Promise<ImageData>(response => {
-        worker.onmessage = (event: MessageEvent<WorkerResponse>) => response(event.data.dst)
-        worker.postMessage({src: imgdata, sigma: sigma})
-    })
-    options.progressFunc(100)
-    worker.terminate()
-    return imgdata
+    try {
+        options.progressFunc(0)
+        imgdata = await orStop(options.stopPromise, new Promise<ImageData>(response => {
+            worker.onmessage = (event: MessageEvent<WorkerResponse>) => response(event.data.dst)
+            worker.postMessage({src: imgdata, sigma: sigma})
+        }))
+        options.progressFunc(100)
+        return imgdata
+    } catch (e) {
+        console.warn('interrupted thread:', e)
+        throw e
+    } finally {
+        console.log('terminate thread')
+        worker.terminate()
+    }
 }
 
 export function workerBody() {
@@ -33,7 +41,8 @@ export function workerBody() {
         let sigma = event.data.sigma
         let options: BlurWorkerOptions = {
             poolSize: 0,
-            progressFunc: (percent: number) => {}
+            progressFunc: (percent: number) => {},
+            stopPromise: new Promise<void>(_ => {}),
         }
         await asyncBlurInplace(imgdata, sigma, blurLine, options)
         self.postMessage({dst: imgdata}, [imgdata.data.buffer])

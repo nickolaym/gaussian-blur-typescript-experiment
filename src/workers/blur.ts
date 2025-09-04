@@ -35,7 +35,12 @@ const implTable = new Map<Method, AsyncBlurImplFunc>([
     [methodAdaptive, asyncBlurAdaptive]
 ])
 
-export async function asyncBlur(imgdata: ImageData, sigma: number, options: BlurWorkerOptions, method: Method): Promise<ImageData> {
+export async function asyncBlur(
+    imgdata: ImageData,
+    sigma: number,
+    options: BlurWorkerOptions,
+    method: Method
+): Promise<ImageData> {
     let impl = implTable.get(method)
     if (!impl) {
         throw new Error(`unexpected method ${method}`)
