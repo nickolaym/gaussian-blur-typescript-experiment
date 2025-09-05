@@ -15,7 +15,6 @@ export declare class StopObject {
 }
 export declare class StopHost {
     current: StopObject;
-    newStopObject(): StopObject;
-    stop(): Promise<void>;
-    done(): void;
+    executeStoppable<T>(asyncBody: (stopPromise: StopPromise) => Promise<T>, interrupt?: boolean): Promise<T>;
+    executeSimple<T>(asyncBody: () => Promise<T>, interrupt?: boolean): Promise<T>;
 }

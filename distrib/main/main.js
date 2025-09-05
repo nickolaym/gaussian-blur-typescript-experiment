@@ -15,34 +15,24 @@ let srcImage = null;
 let dstCanvas = document.getElementById('dstCanvas');
 // global promise that stops rendering
 let stopHost = new StopHost();
+async function resetSourceImage() {
+    if (!srcImage)
+        return;
+    putImageIntoCanvas(srcImage, dstCanvas);
+}
 async function loadSourceImage() {
     let url = srcUrl.value;
     try {
-        await stopHost.stop();
         let img = await asyncLoadImage(url);
         srcImage = img;
         imageSize.innerText = `${img.width} x ${img.height}`;
-        putImageIntoCanvas(img, dstCanvas);
+        await resetSourceImage();
     }
     catch (error) {
         alert(error);
     }
 }
-srcFile.onchange = async () => {
-    srcUrl.value = URL.createObjectURL(srcFile.files[0]);
-    await loadSourceImage();
-};
-urlButton.onclick = async () => {
-    await loadSourceImage();
-};
-resetButton.onclick = async () => {
-    await stopHost.stop();
-    if (!srcImage)
-        return;
-    putImageIntoCanvas(srcImage, dstCanvas);
-};
-blurButton.onclick = async () => {
-    await stopHost.stop();
+async function blurDstCanvas(stopPromise) {
     console.error('blur ready . . .');
     if (!srcImage || srcImage.width == 0 || srcImage.height == 0) {
         alert('no image to blur');
@@ -62,8 +52,7 @@ blurButton.onclick = async () => {
         method = methodAdaptive;
     }
     try {
-        blurButton.disabled = true;
-        let stopObject = stopHost.newStopObject();
+        // blurButton.disabled = true
         progressSpan.innerText = 'start blurring...';
         let perf0 = performance.now();
         let srcImageData = getImageDataFromCanvas(dstCanvas);
@@ -73,9 +62,9 @@ blurButton.onclick = async () => {
                 progressSpan.innerText = `${percent} % of work done...`;
                 putImageDataIntoCanvas(srcImageData, dstCanvas);
             },
-            stopPromise: stopObject.stopPromise
+            stopPromise: stopPromise
         };
-        let dstImageData = await orStop(options.stopPromise, asyncBlur(srcImageData, sigma, options, method));
+        let dstImageData = await orStop(stopPromise, asyncBlur(srcImageData, sigma, options, method));
         putImageDataIntoCanvas(dstImageData, dstCanvas);
         let perf1 = performance.now();
         progressSpan.innerText = `blur complete in ${Math.round(perf1 - perf0)} ms`;
@@ -86,7 +75,19 @@ blurButton.onclick = async () => {
         progressSpan.innerText = `blur interrupped: ${e}`;
     }
     finally {
-        stopHost.done();
-        blurButton.disabled = false;
+        // blurButton.disabled = false
     }
+}
+srcFile.onchange = async () => {
+    srcUrl.value = URL.createObjectURL(srcFile.files[0]);
+    await stopHost.executeSimple(loadSourceImage).catch();
+};
+urlButton.onclick = async () => {
+    await stopHost.executeSimple(loadSourceImage).catch();
+};
+resetButton.onclick = async () => {
+    await stopHost.executeSimple(resetSourceImage).catch();
+};
+blurButton.onclick = async () => {
+    await stopHost.executeStoppable(blurDstCanvas, false).catch();
 };

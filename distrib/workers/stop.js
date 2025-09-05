@@ -2,25 +2,15 @@ export function noStopPromise() {
     return { promise: null, raised: false };
 }
 export async function orStop(stopPromise, cargoPromise) {
-    if (stopPromise.promise) {
-        await Promise.race([stopPromise.promise, cargoPromise]);
-        // both promises may be settled before this point
-        // but we must prioritize the event of stop
-        if (stopPromise.raised) {
-            // force throwing it
-            await stopPromise.promise;
-            // somehow it may not throw, so let's do that again
-            throw new StopError('interrupted by user');
-        }
-    }
-    return await cargoPromise;
+    return await Promise.race([stopPromise.promise, cargoPromise]);
 }
 export class StopError extends Error {
 }
 function newPromiseWithResolvers() {
     // handmade Promise.withResolvers, compatible with es2015
-    let res, rej;
-    let p = new Promise((reject, resolve) => { res = resolve; rej = reject; });
+    let res;
+    let rej;
+    let p = new Promise((resolve, reject) => { res = resolve; rej = reject; });
     return { promise: p, resolve: res, reject: rej };
 }
 export class StopObject {
@@ -41,33 +31,51 @@ export class StopObject {
         this.doneSignal = () => prrDone.resolve();
     }
 }
+async function interruptAndWaitPrevious(previous) {
+    previous.stopSignal();
+    await previous.donePromise;
+}
+async function waitPrevious(stopPromise, previous) {
+    // while we are waiting, our successor can interrupt us - and, therefore, previous too.
+    try {
+        await orStop(stopPromise, previous.donePromise);
+    }
+    catch (e) {
+        if (e instanceof StopError) {
+            interruptAndWaitPrevious(previous);
+        }
+        throw e;
+    }
+}
 export class StopHost {
     current = null;
-    newStopObject() {
-        if (this.current) {
-            throw new Error('previous job is not properly finished!');
-        }
-        this.current = new StopObject();
-        return this.current;
-    }
-    async stop() {
-        if (this.current) {
-            let current = this.current;
-            current.stopSignal();
-            try {
-                await current.donePromise;
+    async executeStoppable(asyncBody, interrupt = true) {
+        // shift in new StopObject, this will make our successors to stop and wait for us
+        let previous = this.current;
+        let current = new StopObject();
+        this.current = current;
+        try {
+            if (previous) {
+                if (interrupt) {
+                    interruptAndWaitPrevious(previous);
+                }
+                else {
+                    waitPrevious(current.stopPromise, previous);
+                }
             }
-            catch (e) {
-                console.warn(e);
+            return await orStop(current.stopPromise, asyncBody(current.stopPromise));
+        }
+        finally {
+            current.doneSignal();
+            // await current.donePromise
+            if (this.current == current) {
+                // nobody is enqueued yet
+                this.current = null;
             }
-            console.log('awaited.');
         }
     }
-    done() {
-        if (!this.current) {
-            throw new Error('current job is not properly initialized!');
-        }
-        this.current.doneSignal();
-        this.current = null;
+    async executeSimple(asyncBody, interrupt = true) {
+        // just ignore stopPromise, run normally till the end
+        return this.executeStoppable(async (_) => await asyncBody(), interrupt);
     }
 }
