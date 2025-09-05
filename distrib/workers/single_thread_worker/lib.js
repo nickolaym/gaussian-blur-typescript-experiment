@@ -1,6 +1,6 @@
 import { asyncBlurInplace, blurLine } from '../blur_lib.js';
 import { newModuleWorker } from '../worker_lib.js';
-import { orStop } from '../stop.js';
+import { noStopPromise, orStop } from '../stop.js';
 export async function asyncBlurImpl(imgdata, sigma, options) {
     let worker = newModuleWorker(import.meta.resolve('./body.js'));
     try {
@@ -28,7 +28,7 @@ export function workerBody() {
         let options = {
             poolSize: 0,
             progressFunc: (percent) => { },
-            stopPromise: new Promise(_ => { }),
+            stopPromise: noStopPromise(),
         };
         await asyncBlurInplace(imgdata, sigma, blurLine, options);
         self.postMessage({ dst: imgdata }, [imgdata.data.buffer]);

@@ -1,12 +1,73 @@
+export function noStopPromise() {
+    return { promise: null, raised: false };
+}
 export async function orStop(stopPromise, cargoPromise) {
-    return await Promise.race([stopPromise, cargoPromise]);
+    if (stopPromise.promise) {
+        await Promise.race([stopPromise.promise, cargoPromise]);
+        // both promises may be settled before this point
+        // but we must prioritize the event of stop
+        if (stopPromise.raised) {
+            // force throwing it
+            await stopPromise.promise;
+            // somehow it may not throw, so let's do that again
+            throw new StopError('interrupted by user');
+        }
+    }
+    return await cargoPromise;
 }
 export class StopError extends Error {
 }
-export function newStopPromiseAndRejector() {
-    let rejector;
-    let stopPromise = new Promise((_, reject) => {
-        rejector = () => reject(new StopError('execution interrupted by user'));
-    });
-    return { stopPromise: stopPromise, rejector: rejector };
+function newPromiseWithResolvers() {
+    // handmade Promise.withResolvers, compatible with es2015
+    let res, rej;
+    let p = new Promise((reject, resolve) => { res = resolve; rej = reject; });
+    return { promise: p, resolve: res, reject: rej };
+}
+export class StopObject {
+    // what we send to the execution flow to interrupt it
+    stopPromise;
+    stopSignal;
+    donePromise;
+    doneSignal;
+    constructor() {
+        let prrStop = newPromiseWithResolvers();
+        let prrDone = newPromiseWithResolvers();
+        this.stopPromise = { promise: prrStop.promise, raised: false };
+        this.stopSignal = () => {
+            this.stopPromise.raised = true;
+            prrStop.reject(new StopError('interrupted by user'));
+        };
+        this.donePromise = prrDone.promise;
+        this.doneSignal = () => prrDone.resolve();
+    }
+}
+export class StopHost {
+    current = null;
+    newStopObject() {
+        if (this.current) {
+            throw new Error('previous job is not properly finished!');
+        }
+        this.current = new StopObject();
+        return this.current;
+    }
+    async stop() {
+        if (this.current) {
+            let current = this.current;
+            current.stopSignal();
+            try {
+                await current.donePromise;
+            }
+            catch (e) {
+                console.warn(e);
+            }
+            console.log('awaited.');
+        }
+    }
+    done() {
+        if (!this.current) {
+            throw new Error('current job is not properly initialized!');
+        }
+        this.current.doneSignal();
+        this.current = null;
+    }
 }
