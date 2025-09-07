@@ -1,6 +1,7 @@
 import { asyncBlurImpl as asyncBlurWithWorkers } from './line_worker/lib.js'
 import { asyncBlurImpl as asyncBlurWithPool } from './pool_worker/lib.js'
 import { asyncBlurImpl as asyncBlurWithSingle } from './single_thread_worker/lib.js'
+import { asyncBlurImpl as asyncBlurNoWorker } from './no_worker/lib.js'
 
 import { BlurWorkerOptions } from './options.js'
 
@@ -23,8 +24,9 @@ export const methodSingle = 'single'
 export const methodWorkers = 'workers'
 export const methodPool = 'pool'
 export const methodAdaptive = 'adaptive'
+export const methodNoWorker = 'noworker'
 
-export type Method = 'single' | 'workers' | 'pool' | 'adaptive'
+export type Method = 'single' | 'workers' | 'pool' | 'adaptive' | 'noworker'
 
 type AsyncBlurImplFunc = (imgdata: ImageData, sigma: number, options: BlurWorkerOptions) => Promise<ImageData>
 
@@ -32,7 +34,8 @@ const implTable = new Map<Method, AsyncBlurImplFunc>([
     [methodSingle, asyncBlurWithSingle],
     [methodWorkers, asyncBlurWithWorkers],
     [methodPool, asyncBlurWithPool],
-    [methodAdaptive, asyncBlurAdaptive]
+    [methodAdaptive, asyncBlurAdaptive],
+    [methodNoWorker, asyncBlurNoWorker],
 ])
 
 export async function asyncBlur(
