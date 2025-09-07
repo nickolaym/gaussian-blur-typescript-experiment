@@ -92,7 +92,7 @@ async function blurDstCanvas(stopPromise: StopPromise) {
         putImageDataIntoCanvas(dstImageData, dstCanvas)
         let perf1 = performance.now()
         progressSpan.innerText = `blur complete in ${Math.round(perf1 - perf0)} ms`
-        console.error('blur done')
+        console.log('blur done')
     } catch (e) {
         console.error('blur interrupted:', e)
         progressSpan.innerText = `blur interrupped: ${e}`

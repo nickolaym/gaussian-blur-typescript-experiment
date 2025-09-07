@@ -68,7 +68,7 @@ async function blurDstCanvas(stopPromise) {
         putImageDataIntoCanvas(dstImageData, dstCanvas);
         let perf1 = performance.now();
         progressSpan.innerText = `blur complete in ${Math.round(perf1 - perf0)} ms`;
-        console.error('blur done');
+        console.log('blur done');
     }
     catch (e) {
         console.error('blur interrupted:', e);
@@ -80,14 +80,14 @@ async function blurDstCanvas(stopPromise) {
 }
 srcFile.onchange = async () => {
     srcUrl.value = URL.createObjectURL(srcFile.files[0]);
-    await stopHost.executeSimple(loadSourceImage).catch();
+    await stopHost.executeSimple(loadSourceImage);
 };
 urlButton.onclick = async () => {
-    await stopHost.executeSimple(loadSourceImage).catch();
+    await stopHost.executeSimple(loadSourceImage);
 };
 resetButton.onclick = async () => {
-    await stopHost.executeSimple(resetSourceImage).catch();
+    await stopHost.executeSimple(resetSourceImage);
 };
 blurButton.onclick = async () => {
-    await stopHost.executeStoppable(blurDstCanvas, false).catch();
+    await stopHost.executeStoppable(blurDstCanvas, false);
 };

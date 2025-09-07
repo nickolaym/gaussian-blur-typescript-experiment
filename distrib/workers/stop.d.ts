@@ -13,8 +13,11 @@ export declare class StopObject {
     readonly doneSignal: () => void;
     constructor();
 }
+export declare function suppressStopError(e: Error): void;
 export declare class StopHost {
     current: StopObject;
-    executeStoppable<T>(asyncBody: (stopPromise: StopPromise) => Promise<T>, interrupt?: boolean): Promise<T>;
-    executeSimple<T>(asyncBody: () => Promise<T>, interrupt?: boolean): Promise<T>;
+    tryExecuteStoppable<T>(asyncBody: (stopPromise: StopPromise) => Promise<T>, interrupt?: boolean): Promise<T>;
+    tryExecuteSimple<T>(asyncBody: () => Promise<T>, interrupt?: boolean): Promise<T>;
+    executeStoppable(asyncBody: (stopPromise: StopPromise) => Promise<void>, interrupt?: boolean): Promise<void>;
+    executeSimple(asyncBody: () => Promise<void>, interrupt?: boolean): Promise<void>;
 }

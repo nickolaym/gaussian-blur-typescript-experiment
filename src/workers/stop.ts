@@ -63,11 +63,18 @@ async function waitPrevious(stopPromise: StopPromise, previous: StopObject) {
     }
 }
 
+export function suppressStopError(e: Error) {
+    if (e instanceof StopError) {
+        console.warn('stask stopped', e)
+    } else {
+        throw e
+    }
+}
 
 export class StopHost {
     current: StopObject = null
 
-    async executeStoppable<T>(
+    async tryExecuteStoppable<T>(
         asyncBody: (stopPromise: StopPromise) => Promise<T>,
         interrupt: boolean = true,
     ) {
@@ -96,14 +103,36 @@ export class StopHost {
         }
     }
 
-    async executeSimple<T>(
+    async tryExecuteSimple<T>(
         asyncBody: () => Promise<T>,
         interrupt: boolean = true,
     ) {
         // just ignore stopPromise, run normally till the end
-        return this.executeStoppable(
+        return this.tryExecuteStoppable(
             async (_: StopPromise) => await asyncBody(),
             interrupt,
         )
+    }
+
+    async executeStoppable(
+        asyncBody: (stopPromise: StopPromise) => Promise<void>,
+        interrupt: boolean = true,
+    ) {
+        try {
+            await this.tryExecuteStoppable(asyncBody, interrupt)
+        } catch (e) {
+            suppressStopError(e)
+        }
+    }
+
+    async executeSimple(
+        asyncBody: () => Promise<void>,
+        interrupt: boolean = true,
+    ) {
+        try {
+            await this.tryExecuteSimple(asyncBody, interrupt)
+        } catch (e) {
+            suppressStopError(e)
+        }
     }
 }
