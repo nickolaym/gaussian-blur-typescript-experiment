@@ -4,12 +4,17 @@ import { noStopPromise, orStop } from '../stop.js';
 export async function asyncBlurImpl(imgdata, sigma, options) {
     let worker = newModuleWorker(import.meta.resolve('./body.js'));
     try {
-        options.progressFunc(0);
         imgdata = await orStop(options.stopPromise, new Promise(response => {
-            worker.onmessage = (event) => response(event.data.dst);
+            worker.onmessage = (event) => {
+                if (event.data.percent) {
+                    options.progressFunc(event.data.percent);
+                }
+                if (event.data.dst) {
+                    response(event.data.dst);
+                }
+            };
             worker.postMessage({ src: imgdata, sigma: sigma });
         }));
-        options.progressFunc(100);
         return imgdata;
     }
     catch (e) {
@@ -27,7 +32,9 @@ export function workerBody() {
         let sigma = event.data.sigma;
         let options = {
             poolSize: 0,
-            progressFunc: (percent) => { },
+            progressFunc: (percent) => {
+                self.postMessage({ percent: percent });
+            },
             stopPromise: noStopPromise(),
         };
         await asyncBlurInplace(imgdata, sigma, blurLine, options);

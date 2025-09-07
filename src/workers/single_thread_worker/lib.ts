@@ -9,7 +9,8 @@ type WorkerRequest = {
 }
 
 type WorkerResponse = {
-    dst: ImageData
+    dst?: ImageData
+    percent?: number
 }
 
 export async function asyncBlurImpl(
@@ -19,12 +20,17 @@ export async function asyncBlurImpl(
 ): Promise<ImageData> {
     let worker = newModuleWorker(import.meta.resolve('./body.js'))
     try {
-        options.progressFunc(0)
         imgdata = await orStop(options.stopPromise, new Promise<ImageData>(response => {
-            worker.onmessage = (event: MessageEvent<WorkerResponse>) => response(event.data.dst)
+            worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
+                if (event.data.percent) {
+                    options.progressFunc(event.data.percent)
+                }
+                if (event.data.dst) {
+                    response(event.data.dst)
+                }
+            }
             worker.postMessage({src: imgdata, sigma: sigma})
         }))
-        options.progressFunc(100)
         return imgdata
     } catch (e) {
         console.warn('interrupted thread:', e)
@@ -41,7 +47,9 @@ export function workerBody() {
         let sigma = event.data.sigma
         let options: BlurWorkerOptions = {
             poolSize: 0,
-            progressFunc: (percent: number) => {},
+            progressFunc: (percent: number) => {
+                self.postMessage({percent: percent})
+            },
             stopPromise: noStopPromise(),
         }
         await asyncBlurInplace(imgdata, sigma, blurLine, options)
