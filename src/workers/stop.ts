@@ -86,9 +86,9 @@ export class StopHost {
         try {
             if (previous) {
                 if (interrupt) {
-                    interruptAndWaitPrevious(previous)
+                    await interruptAndWaitPrevious(previous)
                 } else {
-                    waitPrevious(current.stopPromise, previous)
+                    await waitPrevious(current.stopPromise, previous)
                 }
             }
             return await orStop(current.stopPromise, asyncBody(current.stopPromise))
