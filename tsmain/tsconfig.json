@@ -3,5 +3,6 @@
         {"path": "../src/dom"},
         {"path": "../src/workers"},
         {"path": "../src/main"},
+        {"path": "../tests"},
     ]
 }

@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+        "composite": true,
+        "target": "esnext",
+        "lib": ["es2015", "webworker"],
+        // "outDir": ".",
+        "module": "nodenext",
+        "moduleResolution": "nodenext",
+    },
+    "references": [
+        {"path": "../src/workers", "alias": "../distrib/workers"},
+    ]
+}
