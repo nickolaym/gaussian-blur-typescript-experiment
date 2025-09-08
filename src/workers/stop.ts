@@ -3,11 +3,10 @@ type VoidFunc = () => void
 
 export type StopPromise = {
     promise: Promise<void>
-    raised: boolean
 }
 
 export function noStopPromise(): StopPromise {
-    return { promise: null, raised: false }
+    return { promise: null }
 }
 
 export async function orStop<T> (stopPromise: StopPromise, cargoPromise: Promise<T>): Promise<T> {
@@ -35,9 +34,8 @@ export class StopObject {
         let prrStop = newPromiseWithResolvers()
         let prrDone = newPromiseWithResolvers()
 
-        this.stopPromise = { promise: prrStop.promise, raised: false }
+        this.stopPromise = { promise: prrStop.promise }
         this.stopSignal = () => {
-            this.stopPromise.raised = true
             prrStop.reject(new StopError('interrupted by user'))
         }
 

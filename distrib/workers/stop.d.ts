@@ -1,6 +1,5 @@
 export type StopPromise = {
     promise: Promise<void>;
-    raised: boolean;
 };
 export declare function noStopPromise(): StopPromise;
 export declare function orStop<T>(stopPromise: StopPromise, cargoPromise: Promise<T>): Promise<T>;

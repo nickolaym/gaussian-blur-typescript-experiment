@@ -1,5 +1,5 @@
 export function noStopPromise() {
-    return { promise: null, raised: false };
+    return { promise: null };
 }
 export async function orStop(stopPromise, cargoPromise) {
     return await Promise.race([stopPromise.promise, cargoPromise]);
@@ -22,9 +22,8 @@ export class StopObject {
     constructor() {
         let prrStop = newPromiseWithResolvers();
         let prrDone = newPromiseWithResolvers();
-        this.stopPromise = { promise: prrStop.promise, raised: false };
+        this.stopPromise = { promise: prrStop.promise };
         this.stopSignal = () => {
-            this.stopPromise.raised = true;
             prrStop.reject(new StopError('interrupted by user'));
         };
         this.donePromise = prrDone.promise;
