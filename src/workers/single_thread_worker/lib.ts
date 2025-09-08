@@ -46,7 +46,8 @@ export function workerBody() {
         let imgdata = event.data.src
         let sigma = event.data.sigma
         let options: BlurWorkerOptions = {
-            poolSize: 0,
+            poolSize: 1,
+            crowdSize: 1,
             progressFunc: (percent: number) => {
                 self.postMessage({percent: percent})
             },

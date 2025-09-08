@@ -6,6 +6,7 @@ let srcUrl = document.getElementById('srcUrl');
 let urlButton = document.getElementById('urlButton');
 let sigmaInput = document.getElementById('sigmaInput');
 let poolSizeInput = document.getElementById('poolSizeInput');
+let crowdFactorInput = document.getElementById('crowdFactorInput');
 let methodSelector = document.getElementById('methodSelector');
 let resetButton = document.getElementById('resetButton');
 let blurButton = document.getElementById('blurButton');
@@ -35,12 +36,20 @@ async function loadSourceImage() {
 }
 function getBlurParams() {
     let sigma = parseFloat(sigmaInput.value);
-    if (isNaN(sigma) || sigma < 0) {
+    if (isNaN(sigma) || sigma <= 0) {
         throw new Error(`invalid sigma value ${sigmaInput.value} = ${sigma}`);
     }
     let poolSize = parseInt(poolSizeInput.value);
-    if (isNaN(poolSize) || poolSize < 0) {
+    if (isNaN(poolSize) || poolSize < 1) {
         throw new Error(`invalid pool size value ${poolSizeInput.value} = ${poolSize}`);
+    }
+    let crowdFactor = parseFloat(crowdFactorInput.value);
+    if (isNaN(crowdFactor) || crowdFactor <= 0) {
+        throw new Error(`invalid crowd factor value ${crowdFactorInput.value} = ${crowdFactor}`);
+    }
+    let crowdSize = Math.round(poolSize * crowdFactor);
+    if (crowdSize < 1) {
+        throw new Error(`too small crowd factor ${crowdFactor} * pool size ${poolSize} = ${crowdSize}`);
     }
     let method = methodSelector.value;
     if (method == '') {
@@ -49,6 +58,7 @@ function getBlurParams() {
     return {
         sigma: sigma,
         poolSize: poolSize,
+        crowdSize: crowdSize,
         method: method,
     };
 }
@@ -69,6 +79,7 @@ async function blurDstCanvas(stopPromise, blurParams) {
         let srcImageData = getImageDataFromCanvas(dstCanvas);
         let options = {
             poolSize: blurParams.poolSize,
+            crowdSize: blurParams.crowdSize,
             progressFunc: (percent) => {
                 setProgress(`${percent} % of work done...`);
                 putImageDataIntoCanvas(srcImageData, dstCanvas);

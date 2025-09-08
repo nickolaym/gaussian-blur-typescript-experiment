@@ -211,8 +211,8 @@ async function asyncBlurLinesInplace(
     // if countBatches is greater than number of threads,
     // we will put data into message queues
     // Huge difference overfills queues, subtle difference makes threads waiting
-    const countThreads = (options.poolSize > 0 ? options.poolSize : 16)
-    const countBatches = countThreads * 2
+    const countThreads = options.poolSize
+    const countBatches = options.crowdSize
 
     let countInBatch = Math.ceil(count / countBatches)
     let singleBatchWork = async (batchIndex) => {
@@ -277,6 +277,9 @@ export async function asyncBlurInplace(
     asyncBlurLineSomehow: BlurLineFunc,
     options: BlurWorkerOptions,
 ): Promise<void> {
+    if (options.crowdSize < 1 || options.poolSize < 1) {
+        throw new Error('incorrect options')
+    }
     let coeffs = makeBlurCoeffs(sigma)
 
     let progressTickFunc = makeProgressTickFunc(imgdata.width + imgdata.height, options.progressFunc)

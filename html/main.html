@@ -26,6 +26,7 @@
                     </td>
                     <td>
                         <input id="sigmaInput" type="text" value="10">
+                        (float, default = 10.0)
                     </td>
                 </tr>
                 <tr>
@@ -33,7 +34,15 @@
                         <label for="poolSize">thread pool size</label>
                     </td>
                     <td>
-                        <input id="poolSizeInput" type="text" value="16">
+                        <input id="poolSizeInput" type="text" value="16"> (default = 16)
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="crowdFactor">crowd factor</label>
+                    </td>
+                    <td>
+                        <input id="crowdFactorInput" type="text" value="1"> (float, default = 1)
                     </td>
                 </tr>
                 <tr>
@@ -41,12 +50,12 @@
                         <label for="methodSelector">method</label>
                     </td>
                     <td>
-                        <select id="methodSelector" value="single">
-                            <option value="adaptive">adaptive (default)</option>
+                        <select id="methodSelector">
+                            <option value="adaptive">adaptive</option>
                             <option value="single">single thread</option>
                             <option value="workers">new worker for each line</option>
                             <option value="pool">fixed pool of threads</option>
-                            <option value="noworker">no worker</option>
+                            <option value="noworker" selected>no worker</option>
                         </select>
                     </td>
                 </tr>

@@ -20,6 +20,7 @@ let urlButton = document.getElementById('urlButton') as HTMLButtonElement
 
 let sigmaInput = document.getElementById('sigmaInput') as HTMLInputElement
 let poolSizeInput = document.getElementById('poolSizeInput') as HTMLInputElement
+let crowdFactorInput = document.getElementById('crowdFactorInput') as HTMLInputElement
 let methodSelector = document.getElementById('methodSelector') as HTMLSelectElement
 
 let resetButton = document.getElementById('resetButton') as HTMLButtonElement
@@ -57,17 +58,26 @@ async function loadSourceImage() {
 type BlurParams = {
     sigma: number
     poolSize: number
+    crowdSize: number
     method: Method
 }
 
 function getBlurParams(): BlurParams {
     let sigma = parseFloat(sigmaInput.value)
-    if (isNaN(sigma) || sigma < 0) {
+    if (isNaN(sigma) || sigma <= 0) {
         throw new Error(`invalid sigma value ${sigmaInput.value} = ${sigma}`)
     }
     let poolSize = parseInt(poolSizeInput.value)
-    if (isNaN(poolSize) || poolSize < 0) {
+    if (isNaN(poolSize) || poolSize < 1) {
         throw new Error(`invalid pool size value ${poolSizeInput.value} = ${poolSize}`)
+    }
+    let crowdFactor = parseFloat(crowdFactorInput.value)
+    if (isNaN(crowdFactor) || crowdFactor <= 0) {
+        throw new Error(`invalid crowd factor value ${crowdFactorInput.value} = ${crowdFactor}`)
+    }
+    let crowdSize = Math.round(poolSize * crowdFactor)
+    if (crowdSize < 1) {
+        throw new Error(`too small crowd factor ${crowdFactor} * pool size ${poolSize} = ${crowdSize}`)
     }
     let method = methodSelector.value
     if (method == '') {
@@ -76,6 +86,7 @@ function getBlurParams(): BlurParams {
     return {
         sigma: sigma,
         poolSize: poolSize,
+        crowdSize: crowdSize,
         method: method as Method,
     }
 }
@@ -101,6 +112,7 @@ async function blurDstCanvas(stopPromise: StopPromise, blurParams: BlurParams) {
         let srcImageData = getImageDataFromCanvas(dstCanvas)
         let options = {
             poolSize: blurParams.poolSize,
+            crowdSize: blurParams.crowdSize,
             progressFunc: (percent: number) => {
                 setProgress(`${percent} % of work done...`)
                 putImageDataIntoCanvas(srcImageData, dstCanvas)

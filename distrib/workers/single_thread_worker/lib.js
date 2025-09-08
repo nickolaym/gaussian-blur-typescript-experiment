@@ -31,7 +31,8 @@ export function workerBody() {
         let imgdata = event.data.src;
         let sigma = event.data.sigma;
         let options = {
-            poolSize: 0,
+            poolSize: 1,
+            crowdSize: 1,
             progressFunc: (percent) => {
                 self.postMessage({ percent: percent });
             },
