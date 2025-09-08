@@ -35,6 +35,7 @@ let dstCanvas = document.getElementById('dstCanvas') as HTMLCanvasElement
 
 let stopHost = new StopHost()
 
+let scheduledBlurs = 0 // we can press "blur" button many times
 
 async function resetSourceImage() {
     if (!srcImage) return
@@ -53,51 +54,68 @@ async function loadSourceImage() {
     }
 }
 
-async function blurDstCanvas(stopPromise: StopPromise) {
-    console.error('blur ready . . .')
-    if (!srcImage || srcImage.width == 0 || srcImage.height == 0) {
-        alert('no image to blur')
-        return
-    }
+type BlurParams = {
+    sigma: number
+    poolSize: number
+    method: Method
+}
 
+function getBlurParams(): BlurParams {
     let sigma = parseFloat(sigmaInput.value)
     if (isNaN(sigma) || sigma < 0) {
-        alert(`invalid sigma value ${sigma}`)
-        return
+        throw new Error(`invalid sigma value ${sigmaInput.value} = ${sigma}`)
     }
     let poolSize = parseInt(poolSizeInput.value)
     if (isNaN(poolSize) || poolSize < 0) {
-        poolSize = 0
+        throw new Error(`invalid pool size value ${poolSizeInput.value} = ${poolSize}`)
     }
     let method = methodSelector.value
     if (method == '') {
         method = methodAdaptive
     }
+    return {
+        sigma: sigma,
+        poolSize: poolSize,
+        method: method as Method,
+    }
+}
+
+async function blurDstCanvas(stopPromise: StopPromise, blurParams: BlurParams) {
+    let setProgress = (progress: string) => {
+        let progressSuffix = (
+            scheduledBlurs == 1
+            ? ''
+            : ` and ${scheduledBlurs-1} blurs not started yet`
+        )
+        progressSpan.innerText = progress + progressSuffix
+    }
+
+    console.log('blur ready . . .')
+    if (!srcImage || srcImage.width == 0 || srcImage.height == 0) {
+        throw new Error('no image to blur')
+    }
 
     try {
-        // blurButton.disabled = true
-        progressSpan.innerText = 'start blurring...'
+        setProgress('start blurring...')
         let perf0 = performance.now()
         let srcImageData = getImageDataFromCanvas(dstCanvas)
         let options = {
-            poolSize: poolSize,
+            poolSize: blurParams.poolSize,
             progressFunc: (percent: number) => {
-                progressSpan.innerText = `${percent} % of work done...`
+                setProgress(`${percent} % of work done...`)
                 putImageDataIntoCanvas(srcImageData, dstCanvas)
             },
             stopPromise: stopPromise
         }
         let dstImageData = await orStop(stopPromise,
-            asyncBlur(srcImageData, sigma, options, method as Method))
+            asyncBlur(srcImageData, blurParams.sigma, options, blurParams.method))
         putImageDataIntoCanvas(dstImageData, dstCanvas)
         let perf1 = performance.now()
-        progressSpan.innerText = `blur complete in ${Math.round(perf1 - perf0)} ms`
+        setProgress(`blur complete in ${Math.round(perf1 - perf0)} ms`)
         console.log('blur done')
     } catch (e) {
         console.error('blur interrupted:', e)
-        progressSpan.innerText = `blur interrupped: ${e}`
-    } finally {
-        // blurButton.disabled = false
+        setProgress(`blur interrupped: ${e}`)
     }
 }
 
@@ -115,5 +133,14 @@ resetButton.onclick = async () => {
 }
 
 blurButton.onclick = async () => {
-    await stopHost.executeStoppable(blurDstCanvas, false)
+    try {
+        scheduledBlurs++
+        let params = getBlurParams()
+        let task = async (stopPromise: StopPromise) => blurDstCanvas(stopPromise, params)
+        await stopHost.executeStoppable(task, false)
+    } catch (e) {
+        alert(e)
+    } finally {
+        scheduledBlurs--
+    }
 }
