@@ -63,7 +63,7 @@ export function suppressStopError(e: Error) {
     }
 }
 
-export class StopHost {
+export class Sequencer {
     current: StopObject = null
 
     async tryExecuteStoppable<T>(

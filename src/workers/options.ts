@@ -1,4 +1,4 @@
-import { OrStopFunc } from './stop.js'
+import { OrStopFunc } from './sequencer.js'
 
 export type ProgressFunc = (percent: number) => void
 

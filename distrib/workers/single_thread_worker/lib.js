@@ -1,6 +1,6 @@
 import { asyncBlurInplace, blurLine } from '../blur_lib.js';
 import { newModuleWorker } from '../worker_lib.js';
-import { noStopPromise } from '../stop.js';
+import { noStopPromise } from '../sequencer.js';
 export async function asyncBlurImpl(imgdata, sigma, options) {
     let worker = newModuleWorker(import.meta.resolve('./body.js'));
     try {

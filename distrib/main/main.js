@@ -1,6 +1,6 @@
 import { asyncLoadImage, putImageIntoCanvas, putImageDataIntoCanvas, getImageDataFromCanvas } from '../dom/render_image.js';
 import { asyncBlur, methodAdaptive, } from '../workers/blur.js';
-import { StopHost } from '../workers/stop.js';
+import { Sequencer } from '../workers/sequencer.js';
 let srcFile = document.getElementById('srcFile');
 let srcUrl = document.getElementById('srcUrl');
 let urlButton = document.getElementById('urlButton');
@@ -15,7 +15,7 @@ let imageSize = document.getElementById('imageSize');
 let srcImage = null;
 let dstCanvas = document.getElementById('dstCanvas');
 // global promise that stops rendering
-let stopHost = new StopHost();
+let sequencer = new Sequencer();
 let scheduledBlurs = 0; // we can press "blur" button many times
 async function resetSourceImage() {
     if (!srcImage)
@@ -99,19 +99,19 @@ async function blurDstCanvas(orStop, blurParams) {
 }
 srcFile.onchange = async () => {
     srcUrl.value = URL.createObjectURL(srcFile.files[0]);
-    await stopHost.executeSimple(loadSourceImage);
+    await sequencer.executeSimple(loadSourceImage);
 };
 urlButton.onclick = async () => {
-    await stopHost.executeSimple(loadSourceImage);
+    await sequencer.executeSimple(loadSourceImage);
 };
 resetButton.onclick = async () => {
-    await stopHost.executeSimple(resetSourceImage);
+    await sequencer.executeSimple(resetSourceImage);
 };
 blurButton.onclick = async () => {
     try {
         scheduledBlurs++;
         let params = getBlurParams();
-        await stopHost.executeStoppable((orStop) => blurDstCanvas(orStop, params), false);
+        await sequencer.executeStoppable((orStop) => blurDstCanvas(orStop, params), false);
     }
     catch (e) {
         alert(e);

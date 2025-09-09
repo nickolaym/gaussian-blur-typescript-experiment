@@ -1,10 +1,10 @@
-import { StopHost } from "../distrib/workers/stop.js";
+import { Sequencer } from "../distrib/workers/sequencer.js";
 import { assert, asyncPause } from './lib.js';
 class SideEffects {
     started = 0;
     finished = 0;
 }
-async function runTask(stopHost, index, interrupt, sideEffects) {
+async function runTask(sequencer, index, interrupt, sideEffects) {
     async function task(orStop) {
         console.log(`starting ${index}`);
         sideEffects.started = performance.now();
@@ -17,7 +17,7 @@ async function runTask(stopHost, index, interrupt, sideEffects) {
     }
     console.log(`launch ${index}`);
     try {
-        await stopHost.tryExecuteStoppable(task, interrupt);
+        await sequencer.tryExecuteStoppable(task, interrupt);
         return true;
     }
     catch (e) {
@@ -25,14 +25,14 @@ async function runTask(stopHost, index, interrupt, sideEffects) {
     }
 }
 export async function test_task1_completes_before_task2() {
-    let stopHost = new StopHost();
+    let sequencer = new Sequencer();
     let e1 = new SideEffects();
-    let t1 = runTask(stopHost, 1, false, e1);
+    let t1 = runTask(sequencer, 1, false, e1);
     assert(e1.started != 0, 'task1 should start');
     await asyncPause();
     assert(!e1.finished, 'task1 should not finish yet');
     let e2 = new SideEffects();
-    let t2 = runTask(stopHost, 2, false, e2);
+    let t2 = runTask(sequencer, 2, false, e2);
     assert(e2.started == 0, 'task2 should not start before task1 finished');
     let [d1, d2] = await Promise.all([t1, t2]);
     assert(e1.started < e2.started, 'task1 should start before task2');
@@ -43,14 +43,14 @@ export async function test_task1_completes_before_task2() {
     assert(d2, 'task1 should finish successfully');
 }
 export async function test_task1_interrupts_before_task2() {
-    let stopHost = new StopHost();
+    let sequencer = new Sequencer();
     let e1 = new SideEffects();
-    let t1 = runTask(stopHost, 1, false, e1);
+    let t1 = runTask(sequencer, 1, false, e1);
     assert(e1.started != 0, 'task1 should start');
     await asyncPause();
     assert(!e1.finished, 'task1 should not finish yet');
     let e2 = new SideEffects();
-    let t2 = runTask(stopHost, 2, true, e2);
+    let t2 = runTask(sequencer, 2, true, e2);
     assert(e2.started == 0, 'task2 should not start before task1 finished');
     let [d1, d2] = await Promise.all([t1, t2]);
     assert(e1.started < e2.started, 'task1 should start before task2');
@@ -60,21 +60,21 @@ export async function test_task1_interrupts_before_task2() {
     assert(d2, 'task1 should finish successfully');
 }
 export async function test_there_were_nothing_to_interrupt() {
-    let stopHost = new StopHost();
-    let t1 = runTask(stopHost, 1, true, new SideEffects());
+    let sequencer = new Sequencer();
+    let t1 = runTask(sequencer, 1, true, new SideEffects());
     await asyncPause();
     let [d1] = await Promise.all([t1]);
     assert(d1);
 }
 export async function test_intterrupt_all_previous_tasks() {
-    let stopHost = new StopHost();
-    let t1 = runTask(stopHost, 1, false, new SideEffects());
-    let t2 = runTask(stopHost, 2, false, new SideEffects());
-    let t3 = runTask(stopHost, 3, false, new SideEffects());
+    let sequencer = new Sequencer();
+    let t1 = runTask(sequencer, 1, false, new SideEffects());
+    let t2 = runTask(sequencer, 2, false, new SideEffects());
+    let t3 = runTask(sequencer, 3, false, new SideEffects());
     await asyncPause();
-    let t4 = runTask(stopHost, 4, true, new SideEffects());
+    let t4 = runTask(sequencer, 4, true, new SideEffects());
     await asyncPause();
-    let t5 = runTask(stopHost, 5, false, new SideEffects());
+    let t5 = runTask(sequencer, 5, false, new SideEffects());
     let [d1, d2, d3, d4, d5] = await Promise.all([t1, t2, t3, t4, t5]);
     assert(!d1 && !d2 && !d3 && d4 && d5);
 }

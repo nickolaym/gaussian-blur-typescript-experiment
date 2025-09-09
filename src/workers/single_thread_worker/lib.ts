@@ -1,7 +1,7 @@
 import { asyncBlurInplace, blurLine } from '../blur_lib.js'
 import { newModuleWorker } from '../worker_lib.js'
 import { BlurWorkerOptions } from '../options.js'
-import { noStopPromise } from '../stop.js'
+import { noStopPromise } from '../sequencer.js'
 
 type WorkerRequest = {
     src: ImageData

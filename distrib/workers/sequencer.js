@@ -52,7 +52,7 @@ export function suppressStopError(e) {
         throw e;
     }
 }
-export class StopHost {
+export class Sequencer {
     current = null;
     async tryExecuteStoppable(asyncBody, interrupt = true) {
         // shift in new StopObject, this will make our successors to stop and wait for us

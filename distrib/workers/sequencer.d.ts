@@ -10,7 +10,7 @@ export declare class StopObject {
     constructor();
 }
 export declare function suppressStopError(e: Error): void;
-export declare class StopHost {
+export declare class Sequencer {
     current: StopObject;
     tryExecuteStoppable<T>(asyncBody: (orStop: OrStopFunc) => Promise<T>, interrupt?: boolean): Promise<T>;
     tryExecuteSimple<T>(asyncBody: () => Promise<T>, interrupt?: boolean): Promise<T>;

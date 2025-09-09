@@ -12,7 +12,7 @@ import {
 } from '../workers/blur.js'
 import { BlurWorkerOptions } from '../workers/options.js'
 
-import { OrStopFunc, StopHost } from '../workers/stop.js'
+import { OrStopFunc, Sequencer } from '../workers/sequencer.js'
 
 let srcFile = document.getElementById('srcFile') as HTMLInputElement
 
@@ -35,7 +35,7 @@ let dstCanvas = document.getElementById('dstCanvas') as HTMLCanvasElement
 
 // global promise that stops rendering
 
-let stopHost = new StopHost()
+let sequencer = new Sequencer()
 
 let scheduledBlurs = 0 // we can press "blur" button many times
 
@@ -138,22 +138,22 @@ async function blurDstCanvas(orStop: OrStopFunc, blurParams: BlurParams) {
 
 srcFile.onchange = async () => {
     srcUrl.value = URL.createObjectURL(srcFile.files[0])
-    await stopHost.executeSimple(loadSourceImage)
+    await sequencer.executeSimple(loadSourceImage)
 }
 
 urlButton.onclick = async () => {
-    await stopHost.executeSimple(loadSourceImage)
+    await sequencer.executeSimple(loadSourceImage)
 }
 
 resetButton.onclick = async () => {
-    await stopHost.executeSimple(resetSourceImage)
+    await sequencer.executeSimple(resetSourceImage)
 }
 
 blurButton.onclick = async () => {
     try {
         scheduledBlurs++
         let params = getBlurParams()
-        await stopHost.executeStoppable(
+        await sequencer.executeStoppable(
             (orStop) => blurDstCanvas(orStop, params),
             false,
         )
