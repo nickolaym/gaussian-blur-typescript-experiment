@@ -4,6 +4,7 @@
         "target": "esnext",
         "lib": ["es2015", "webworker"],
         "outDir": "../../distrib/workers",
-        "module": "es2020",
+        "module": "nodenext",
+        "moduleResolution": "nodenext",
     },
 }

@@ -4,5 +4,7 @@
         "target": "esnext",
         "outDir": "../../distrib/dom",
         "lib": ["es2015", "dom"],
+        "module": "nodenext",
+        "moduleResolution": "nodenext",
     },
 }

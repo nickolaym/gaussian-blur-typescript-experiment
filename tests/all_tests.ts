@@ -1,5 +1,5 @@
-import { runAllModules } from "./all_tests_lib.js"
+import { exitProcess, runAllModules } from "./all_tests_lib.js"
 
-await runAllModules([
+exitProcess(await runAllModules([
     './test_stoppable.js',
-])
+]))

@@ -15,5 +15,8 @@
     "http-server": "^14.1.1",
     "typescript": "^5.9.2"
   },
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^24.3.1"
+  }
 }

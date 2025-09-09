@@ -9,50 +9,60 @@ async function sequenced(array, func) {
 async function runModule(moduleUrl) {
     console.warn('[TEST SUITE]', moduleUrl);
     let module = await import(moduleUrl);
-    let overall = 0;
-    let failures = 0;
+    let overallCount = 0;
+    let failures = new Array();
     async function runTest(name) {
         let test = module[name];
         try {
-            overall++;
+            overallCount++;
             console.warn('[TEST]    ', name);
             await test();
             console.warn('  [PASSED]', name);
         }
         catch {
             console.warn('  [FAILED]', name);
-            failures++;
+            failures.push(name);
         }
     }
     let testNames = Object.keys(module).filter(name => name.match(/test.*/));
     await sequenced(testNames, runTest);
-    if (overall == 0) {
+    let ok = failures.length == 0;
+    if (overallCount == 0) {
         console.warn('[TEST SUITE]', moduleUrl, 'has no tests');
     }
-    else if (failures != 0) {
-        console.error('[TEST SUITE FAILED]', moduleUrl, ':', failures, 'of', overall);
+    else if (ok) {
+        console.warn('[TEST SUITE PASSED]', moduleUrl, ':', overallCount);
     }
     else {
-        console.warn('[TEST SUITE PASSED]', moduleUrl, ':', overall);
+        console.error('[TEST SUITE FAILED]', moduleUrl, ':', failures.length, 'of', overallCount);
+        failures.forEach(name => console.error('  [failed]', name));
     }
-    return failures == 0;
+    return ok;
 }
 export async function runAllModules(moduleUrls) {
-    let overall = 0;
-    let failures = 0;
+    let overallCount = 0;
+    let failures = new Array();
     await sequenced(moduleUrls, async (moduleUrl) => {
         console.warn('=========');
-        overall++;
+        overallCount++;
         let ok = await runModule(moduleUrl);
         if (!ok) {
-            failures++;
+            failures.push(moduleUrl);
         }
     });
-    if (failures == 0) {
-        console.error('========', 'all tests passed', overall);
+    let ok = failures.length == 0;
+    if (overallCount == 0) {
+        console.warn('========', 'no tests launched');
+    }
+    else if (ok) {
+        console.warn('========', 'all tests passed:', overallCount);
     }
     else {
-        console.warn('=======', 'failed suites:', failures, 'of', overall);
-        throw new Error('some tests failed');
+        console.error('=======', 'failed suites:', failures.length, 'of', overallCount);
+        failures.forEach(moduleUrl => console.error('---', moduleUrl));
     }
+    return ok;
+}
+export function exitProcess(ok) {
+    process.exit(ok ? 0 : 1);
 }
