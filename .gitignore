@@ -1,2 +1,3 @@
 tsconfig.tsbuildinfo
 *.d.ts
+/node_modules
