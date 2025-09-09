@@ -8,7 +8,6 @@ import {
 } from '../blur_lib.js'
 import { newModuleWorker } from '../worker_lib.js'
 import { BlurWorkerOptions } from '../options.js'
-import { orStop } from '../stop.js'
 
 type Tag = number
 
@@ -48,7 +47,7 @@ export async function asyncBlurImpl(
             // now we are ready to do regual requests
             // regular request is a ping-pong with corresponding worker
             let request = async (tag: Tag, src: Pixels, _: BlurCoeffs): Promise<Pixels> => {
-                return await orStop(options.stopPromise, new Promise<Pixels>(response => {
+                return await options.orStop(new Promise<Pixels>(response => {
                     responses.set(tag, response)
                     workers[workerIndex].postMessage({src: src.data, tag: tag}, [src.data.buffer])
                 }))
@@ -62,13 +61,13 @@ export async function asyncBlurImpl(
             }
 
             // so we do!
-            return await orStop(options.stopPromise, request(tag, src, coeffs))
+            return await options.orStop(request(tag, src, coeffs))
         }
     })
 
     let asyncBlurLine = async (src: Pixels, coeffs: BlurCoeffs): Promise<Pixels> => {
         let tag = nextTag++
-        return await orStop(options.stopPromise, requests[tag % poolSize](tag, src, coeffs))
+        return await options.orStop(requests[tag % poolSize](tag, src, coeffs))
     }
 
     try {

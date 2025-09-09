@@ -1,11 +1,10 @@
 import { Pixels, asyncBlurInplace, blurLine } from '../blur_lib.js';
 import { newModuleWorker } from '../worker_lib.js';
-import { orStop } from '../stop.js';
 export async function asyncBlurImpl(imgdata, sigma, options) {
     let asyncBlurLine = async (src, coeffs) => {
         let worker = newModuleWorker(import.meta.resolve('./body.js'));
         try {
-            return await orStop(options.stopPromise, new Promise(response => {
+            return await options.orStop(new Promise(response => {
                 worker.onmessage = (event) => response(new Pixels(event.data.dst));
                 worker.postMessage({ src: src.data, coeffs: coeffs }, [src.data.buffer]);
             }));

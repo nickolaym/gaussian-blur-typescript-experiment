@@ -1,6 +1,6 @@
 import { asyncLoadImage, putImageIntoCanvas, putImageDataIntoCanvas, getImageDataFromCanvas } from '../dom/render_image.js';
 import { asyncBlur, methodAdaptive, } from '../workers/blur.js';
-import { orStop, StopHost } from '../workers/stop.js';
+import { StopHost } from '../workers/stop.js';
 let srcFile = document.getElementById('srcFile');
 let srcUrl = document.getElementById('srcUrl');
 let urlButton = document.getElementById('urlButton');
@@ -62,7 +62,7 @@ function getBlurParams() {
         method: method,
     };
 }
-async function blurDstCanvas(stopPromise, blurParams) {
+async function blurDstCanvas(orStop, blurParams) {
     let setProgress = (progress) => {
         let progressSuffix = (scheduledBlurs == 1
             ? ''
@@ -84,9 +84,9 @@ async function blurDstCanvas(stopPromise, blurParams) {
                 setProgress(`${percent} % of work done...`);
                 putImageDataIntoCanvas(srcImageData, dstCanvas);
             },
-            stopPromise: stopPromise
+            orStop: orStop,
         };
-        let dstImageData = await orStop(stopPromise, asyncBlur(srcImageData, blurParams.sigma, options, blurParams.method));
+        let dstImageData = await orStop(asyncBlur(srcImageData, blurParams.sigma, options, blurParams.method));
         putImageDataIntoCanvas(dstImageData, dstCanvas);
         let perf1 = performance.now();
         setProgress(`blur complete in ${Math.round(perf1 - perf0)} ms`);
@@ -111,8 +111,7 @@ blurButton.onclick = async () => {
     try {
         scheduledBlurs++;
         let params = getBlurParams();
-        let task = async (stopPromise) => blurDstCanvas(stopPromise, params);
-        await stopHost.executeStoppable(task, false);
+        await stopHost.executeStoppable((orStop) => blurDstCanvas(orStop, params), false);
     }
     catch (e) {
         alert(e);

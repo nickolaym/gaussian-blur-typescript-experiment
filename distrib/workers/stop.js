@@ -1,8 +1,8 @@
 export function noStopPromise() {
-    return { promise: null };
+    return (promise) => promise;
 }
-export async function orStop(stopPromise, cargoPromise) {
-    return await Promise.race([stopPromise.promise, cargoPromise]);
+function withStopPromise(stopPromise) {
+    return async (promise) => await Promise.race([stopPromise, promise]);
 }
 export class StopError extends Error {
 }
@@ -15,17 +15,15 @@ function newPromiseWithResolvers() {
 }
 export class StopObject {
     // what we send to the execution flow to interrupt it
-    stopPromise;
+    orStop;
     stopSignal;
     donePromise;
     doneSignal;
     constructor() {
         let prrStop = newPromiseWithResolvers();
         let prrDone = newPromiseWithResolvers();
-        this.stopPromise = { promise: prrStop.promise };
-        this.stopSignal = () => {
-            prrStop.reject(new StopError('interrupted by user'));
-        };
+        this.orStop = withStopPromise(prrStop.promise);
+        this.stopSignal = () => prrStop.reject(new StopError('interrupted by user'));
         this.donePromise = prrDone.promise;
         this.doneSignal = () => prrDone.resolve();
     }
@@ -34,14 +32,14 @@ async function interruptAndWaitPrevious(previous) {
     previous.stopSignal();
     await previous.donePromise;
 }
-async function waitPrevious(stopPromise, previous) {
+async function waitPrevious(orStop, previous) {
     // while we are waiting, our successor can interrupt us - and, therefore, previous too.
     try {
-        await orStop(stopPromise, previous.donePromise);
+        await orStop(previous.donePromise);
     }
     catch (e) {
         if (e instanceof StopError) {
-            interruptAndWaitPrevious(previous);
+            await interruptAndWaitPrevious(previous);
         }
         throw e;
     }
@@ -67,10 +65,10 @@ export class StopHost {
                     await interruptAndWaitPrevious(previous);
                 }
                 else {
-                    await waitPrevious(current.stopPromise, previous);
+                    await waitPrevious(current.orStop, previous);
                 }
             }
-            return await orStop(current.stopPromise, asyncBody(current.stopPromise));
+            return await current.orStop(asyncBody(current.orStop));
         }
         finally {
             current.doneSignal();
@@ -82,7 +80,7 @@ export class StopHost {
         }
     }
     async tryExecuteSimple(asyncBody, interrupt = true) {
-        // just ignore stopPromise, run normally till the end
+        // just ignore orStop, run normally till the end
         return this.tryExecuteStoppable(async (_) => await asyncBody(), interrupt);
     }
     async executeStoppable(asyncBody, interrupt = true) {

@@ -10,8 +10,9 @@ import {
     methodAdaptive,
     Method,
 } from '../workers/blur.js'
+import { BlurWorkerOptions } from '../workers/options.js'
 
-import { orStop, StopHost, StopPromise } from '../workers/stop.js'
+import { OrStopFunc, StopHost } from '../workers/stop.js'
 
 let srcFile = document.getElementById('srcFile') as HTMLInputElement
 
@@ -91,7 +92,7 @@ function getBlurParams(): BlurParams {
     }
 }
 
-async function blurDstCanvas(stopPromise: StopPromise, blurParams: BlurParams) {
+async function blurDstCanvas(orStop: OrStopFunc, blurParams: BlurParams) {
     let setProgress = (progress: string) => {
         let progressSuffix = (
             scheduledBlurs == 1
@@ -110,17 +111,21 @@ async function blurDstCanvas(stopPromise: StopPromise, blurParams: BlurParams) {
         setProgress('start blurring...')
         let perf0 = performance.now()
         let srcImageData = getImageDataFromCanvas(dstCanvas)
-        let options = {
+        let options: BlurWorkerOptions = {
             poolSize: blurParams.poolSize,
             crowdSize: blurParams.crowdSize,
             progressFunc: (percent: number) => {
                 setProgress(`${percent} % of work done...`)
                 putImageDataIntoCanvas(srcImageData, dstCanvas)
             },
-            stopPromise: stopPromise
+            orStop: orStop,
         }
-        let dstImageData = await orStop(stopPromise,
-            asyncBlur(srcImageData, blurParams.sigma, options, blurParams.method))
+        let dstImageData = await orStop(asyncBlur(
+            srcImageData,
+            blurParams.sigma,
+            options,
+            blurParams.method,
+        ))
         putImageDataIntoCanvas(dstImageData, dstCanvas)
         let perf1 = performance.now()
         setProgress(`blur complete in ${Math.round(perf1 - perf0)} ms`)
@@ -148,8 +153,10 @@ blurButton.onclick = async () => {
     try {
         scheduledBlurs++
         let params = getBlurParams()
-        let task = async (stopPromise: StopPromise) => blurDstCanvas(stopPromise, params)
-        await stopHost.executeStoppable(task, false)
+        await stopHost.executeStoppable(
+            (orStop) => blurDstCanvas(orStop, params),
+            false,
+        )
     } catch (e) {
         alert(e)
     } finally {
