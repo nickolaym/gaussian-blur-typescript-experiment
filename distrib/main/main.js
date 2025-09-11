@@ -4,6 +4,8 @@ import { Sequencer } from '../workers/sequencer.js';
 let srcFile = document.getElementById('srcFile');
 let srcUrl = document.getElementById('srcUrl');
 let urlButton = document.getElementById('urlButton');
+let urlButtonPara = document.getElementById('urlButtonPara');
+let urlButtonHeli = document.getElementById('urlButtonHeli');
 let sigmaInput = document.getElementById('sigmaInput');
 let poolSizeInput = document.getElementById('poolSizeInput');
 let crowdFactorInput = document.getElementById('crowdFactorInput');
@@ -22,8 +24,7 @@ async function resetSourceImage() {
         return;
     putImageIntoCanvas(srcImage, dstCanvas);
 }
-async function loadSourceImage() {
-    let url = srcUrl.value;
+async function loadGivenSourceImage(url) {
     try {
         let img = await asyncLoadImage(url);
         srcImage = img;
@@ -33,6 +34,13 @@ async function loadSourceImage() {
     catch (error) {
         alert(error);
     }
+}
+async function loadSourceImage() {
+    await loadGivenSourceImage(srcUrl.value);
+}
+async function loadPresetSourceImage(url) {
+    srcUrl.value = url;
+    await loadGivenSourceImage(url);
 }
 function getBlurParams() {
     let sigma = parseFloat(sigmaInput.value);
@@ -103,6 +111,12 @@ srcFile.onchange = async () => {
 };
 urlButton.onclick = async () => {
     await sequencer.executeSimple(loadSourceImage);
+};
+urlButtonPara.onclick = async () => {
+    await sequencer.executeSimple(async () => { loadPresetSourceImage('../images/bgd-cure-2.png'); });
+};
+urlButtonHeli.onclick = async () => {
+    await sequencer.executeSimple(async () => { loadPresetSourceImage('../images/sky-crane.png'); });
 };
 resetButton.onclick = async () => {
     await sequencer.executeSimple(resetSourceImage);

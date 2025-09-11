@@ -43,7 +43,7 @@ export function syncPause(ms = quant) {
         let dt1 = Math.floor(dt / print_every_ms);
         let dt0 = Math.floor(prev_dt / print_every_ms);
         if (dt1 > dt0) {
-            console.log('syncPause', dt, 'of', ms, '::', dt1, dt0);
+            console.log('syncPause', dt, 'of', ms);
         }
         prev_dt = dt;
         if (now >= finish) {

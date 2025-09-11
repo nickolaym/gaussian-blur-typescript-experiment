@@ -18,6 +18,8 @@ let srcFile = document.getElementById('srcFile') as HTMLInputElement
 
 let srcUrl = document.getElementById('srcUrl') as HTMLInputElement
 let urlButton = document.getElementById('urlButton') as HTMLButtonElement
+let urlButtonPara = document.getElementById('urlButtonPara') as HTMLButtonElement
+let urlButtonHeli = document.getElementById('urlButtonHeli') as HTMLButtonElement
 
 let sigmaInput = document.getElementById('sigmaInput') as HTMLInputElement
 let poolSizeInput = document.getElementById('poolSizeInput') as HTMLInputElement
@@ -44,8 +46,7 @@ async function resetSourceImage() {
     putImageIntoCanvas(srcImage, dstCanvas)
 }
 
-async function loadSourceImage() {
-    let url = srcUrl.value
+async function loadGivenSourceImage(url) {
     try {
         let img = await asyncLoadImage(url)
         srcImage = img
@@ -54,6 +55,15 @@ async function loadSourceImage() {
     } catch (error) {
         alert(error)
     }
+}
+
+async function loadSourceImage() {
+    await loadGivenSourceImage(srcUrl.value)
+}
+
+async function loadPresetSourceImage(url) {
+    srcUrl.value = url
+    await loadGivenSourceImage(url)
 }
 
 type BlurParams = {
@@ -143,6 +153,12 @@ srcFile.onchange = async () => {
 
 urlButton.onclick = async () => {
     await sequencer.executeSimple(loadSourceImage)
+}
+urlButtonPara.onclick = async () => {
+    await sequencer.executeSimple(async() => { loadPresetSourceImage('../images/bgd-cure-2.png') })
+}
+urlButtonHeli.onclick = async () => {
+    await sequencer.executeSimple(async() => { loadPresetSourceImage('../images/sky-crane.png') })
 }
 
 resetButton.onclick = async () => {
