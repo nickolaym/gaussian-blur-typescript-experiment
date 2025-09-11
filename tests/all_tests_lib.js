@@ -11,12 +11,12 @@ async function runModule(moduleUrl) {
     let module = await import(moduleUrl);
     let overallCount = 0;
     let failures = new Array();
-    async function runTest(name) {
-        let test = module[name];
+    async function runTestCase(testcase) {
+        let { name, body } = testcase;
         try {
             overallCount++;
             console.warn('[TEST]    ', name);
-            await test();
+            await body();
             console.warn('  [PASSED]', name);
         }
         catch {
@@ -24,8 +24,13 @@ async function runModule(moduleUrl) {
             failures.push(name);
         }
     }
-    let testNames = Object.keys(module).filter(name => name.match(/test.*/));
-    await sequenced(testNames, runTest);
+    // ..... let test = module[name] as ()=>Promise<void> .....
+    // let testNames = Object.keys(module).filter(name => name.match(/test.*/))
+    // await sequenced(testNames, runTest)
+    let testCases = module['test'];
+    if (testCases) {
+        await sequenced(testCases.collection, runTestCase);
+    }
     let ok = failures.length == 0;
     if (overallCount == 0) {
         console.warn('[TEST SUITE]', moduleUrl, 'has no tests');

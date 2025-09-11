@@ -1,3 +1,5 @@
+import { TestCase, TestCases } from "./lib.js"
+
 async function sequenced<T>(array: Array<T>, func: (arg: T) => Promise<void>) {
     // synchronous version of forEach()
     // can be expressed with reduce(), with accumulator Promise:
@@ -15,12 +17,12 @@ async function runModule(moduleUrl: string): Promise<boolean> {
     let overallCount = 0
     let failures = new Array<string>()
 
-    async function runTest(name) {
-        let test = module[name] as ()=>Promise<void>
+    async function runTestCase(testcase: TestCase) {
+        let {name, body} = testcase
         try {
             overallCount++
             console.warn('[TEST]    ', name)
-            await test()
+            await body()
             console.warn('  [PASSED]', name)
         } catch {
             console.warn('  [FAILED]', name)
@@ -28,9 +30,14 @@ async function runModule(moduleUrl: string): Promise<boolean> {
         }
     }
 
-    let testNames = Object.keys(module).filter(name => name.match(/test.*/))
+    // ..... let test = module[name] as ()=>Promise<void> .....
+    // let testNames = Object.keys(module).filter(name => name.match(/test.*/))
+    // await sequenced(testNames, runTest)
 
-    await sequenced(testNames, runTest)
+    let testCases = module['test'] as TestCases
+    if (testCases) {
+        await sequenced(testCases.collection, runTestCase)
+    }
 
     let ok = failures.length == 0
     if (overallCount == 0) {

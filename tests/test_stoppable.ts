@@ -1,108 +1,108 @@
 import { OrStopFunc, StopError, Sequencer } from "../distrib/workers/sequencer.js"
-import {assert, asyncPause } from './lib.js'
+import {assert, asyncPause, syncPause, makeTestCases } from './lib.js'
 
+export let test = makeTestCases()
 
-class SideEffects {
-    started: number = 0
-    finished: number = 0
+type TaskResult = {
+    success: boolean
+    started: number
+    finished: number
 }
 
-async function runTask(
+type Stoppable = boolean
+const kStoppable: Stoppable = true
+const kNonstop  : Stoppable = false
+
+type Interrupt = boolean
+const kInterrupt: Interrupt = true
+const kOrdinary : Interrupt = false
+
+async function task(
+    id: number,
     sequencer: Sequencer,
-    index: number,
+    stoppable: boolean,
     interrupt: boolean,
-    sideEffects: SideEffects,
-): Promise<boolean> {
-    async function task(orStop: OrStopFunc) {
-        console.log(`starting ${index}`)
-        sideEffects.started = performance.now()
-        for (let i = 0; i != 10; ++i) {
-            await orStop(asyncPause())
-            console.log(`passed ${index} step ${i}`)
-        }
-        console.log(`done ${index}`)
-        sideEffects.finished = performance.now()
-    }
-    console.log(`launch ${index}`)
+    duration: number,
+): Promise<TaskResult> {
+    let success = false
+    let started = 0
+    let finished = 0
+
     try {
-        await sequencer.tryExecuteStoppable(task, interrupt)
-        return true
-    } catch (e) {
-        return false
-    }
+        console.log('task', id, 'body launch...')
+        let body = async (orStop: OrStopFunc) => {
+            started = performance.now()
+            console.log('task', id, 'body started at', started)
+            if (stoppable) {
+                await orStop(asyncPause(duration))
+            } else {
+                syncPause(duration)
+            }
+            finished = performance.now()
+            console.log('task', id, 'body finished at', finished)
+        }
+        await sequencer.tryExecuteStoppable(body, interrupt)
+        success = true
+        console.log('task', id, 'success')
+    } catch (e) {}
+
+    return {success: success, started: started, finished: finished}
 }
 
-export async function test_task1_completes_before_task2() {
+test('just launch', async() => {
     let sequencer = new Sequencer()
-
-    let e1 = new SideEffects()
-    let t1 = runTask(sequencer, 1, false, e1)
-
-    assert(e1.started != 0, 'task1 should start')
+    let t1 = task(1, sequencer, kStoppable, kOrdinary, 10)
     await asyncPause()
-    assert(!e1.finished, 'task1 should not finish yet')
+    let r1 = await t1
+    assert(r1.success)
+})
 
-    let e2 = new SideEffects()
-    let t2 = runTask(sequencer, 2, false, e2)
-
-    assert(e2.started == 0, 'task2 should not start before task1 finished')
-
-    let [d1, d2] = await Promise.all([t1, t2])
-
-    assert(e1.started < e2.started, 'task1 should start before task2')
-    assert(e1.finished != 0, 'task1 should finish')
-    assert(e2.finished != 0, 'task2 should finish')
-    assert(e1.finished <= e2.started, 'task1 should finish before task2 start')
-
-    assert(d1, 'task1 should finish successfully')
-    assert(d2, 'task1 should finish successfully')
-}
-
-export async function test_task1_interrupts_before_task2() {
+test('strong sequence', async() => {
     let sequencer = new Sequencer()
-
-    let e1 = new SideEffects()
-    let t1 = runTask(sequencer, 1, false, e1)
-
-    assert(e1.started != 0, 'task1 should start')
+    let t1 = task(1, sequencer, kStoppable, kOrdinary, 10)
+    let t2 = task(2, sequencer, kStoppable, kOrdinary, 10)
+    let t3 = task(3, sequencer, kStoppable, kOrdinary, 10)
     await asyncPause()
-    assert(!e1.finished, 'task1 should not finish yet')
+    let [r1, r2, r3] = await Promise.all([t1, t2, t3])
+    assert(r1.success && r2.success && r3.success)
+    assert(r1.finished < r2.started && r2.finished < r3.started)
+})
 
-    let e2 = new SideEffects()
-    let t2 = runTask(sequencer, 2, true, e2)
-
-    assert(e2.started == 0, 'task2 should not start before task1 finished')
-
-    let [d1, d2] = await Promise.all([t1, t2])
-
-    assert(e1.started < e2.started, 'task1 should start before task2')
-    assert(e1.finished == 0, 'task1 should not finish')
-    assert(e2.finished != 0, 'task2 should finish')
-
-    assert(!d1, 'task1 should fail (interrupt)')
-    assert(d2, 'task1 should finish successfully')
-}
-
-export async function test_there_were_nothing_to_interrupt() {
+test('interrupt stoppable', async() => {
     let sequencer = new Sequencer()
-
-    let t1 = runTask(sequencer, 1, true, new SideEffects())
+    let t1 = task(1, sequencer, kStoppable, kOrdinary, 10) // starts
+    let t2 = task(2, sequencer, kNonstop,   kOrdinary, 10) // not managed to start, even being nonstop
+    let t3 = task(3, sequencer, kStoppable, kInterrupt, 10) // interrupts all preceding
+    let t4 = task(4, sequencer, kStoppable, kOrdinary, 10) // starts after 3
     await asyncPause()
-    let [d1] = await Promise.all([t1])
-    assert(d1)
-}
+    let [r1, r2, r3, r4] = await Promise.all([t1, t2, t3, t4])
+    assert(!r1.success && !r2.success && r3.success && r4.success)
+    assert(r1.started && !r1.finished && !r2.started)
+    assert(r3.finished < r4.started)
+})
 
-export async function test_intterrupt_all_previous_tasks() {
+test('interrupt nonstoppable ', async() => {
     let sequencer = new Sequencer()
-
-    let t1 = runTask(sequencer, 1, false, new SideEffects())
-    let t2 = runTask(sequencer, 2, false, new SideEffects())
-    let t3 = runTask(sequencer, 3, false, new SideEffects())
+    let t1 = task(1, sequencer, kNonstop,   kOrdinary, 10) // starts and finishes
+    let t2 = task(2, sequencer, kStoppable, kOrdinary, 10) // not managed to start
+    let t3 = task(3, sequencer, kStoppable, kInterrupt, 10) // interrupts all preceding
+    let t4 = task(4, sequencer, kStoppable, kOrdinary, 10) // starts after 3
     await asyncPause()
-    let t4 = runTask(sequencer, 4, true, new SideEffects())
-    await asyncPause()
-    let t5 = runTask(sequencer, 5, false, new SideEffects())
+    let [r1, r2, r3, r4] = await Promise.all([t1, t2, t3, t4])
+    assert(r1.success && !r2.success && r3.success && r4.success)
+    assert(r1.started && r1.finished && !r2.started)
+    assert(r1.finished < r3.started && r3.finished < r4.started)
+})
 
-    let [d1, d2, d3, d4, d5] = await Promise.all([t1, t2, t3, t4, t5])
-    assert(!d1 && !d2 && !d3 && d4 && d5)
-}
+test('interrupt interruptors ', async() => {
+    let sequencer = new Sequencer()
+    let t1 = task(1, sequencer, kStoppable, kInterrupt, 10) // starts
+    let t2 = task(2, sequencer, kStoppable, kInterrupt, 10) // starts
+    let t3 = task(3, sequencer, kStoppable, kInterrupt, 10) // starts
+    let t4 = task(4, sequencer, kStoppable, kInterrupt, 10) // starts and finishes
+    await asyncPause()
+    let [r1, r2, r3, r4] = await Promise.all([t1, t2, t3, t4])
+    assert(!r1.success && !r2.success && !r3.success && r4.success)
+    assert(r1.started && r1.started < r2.started && r2.started < r3.started && r3.started < r4.started)
+    assert(!r1.finished && !r2.finished && !r3.finished)
+})
