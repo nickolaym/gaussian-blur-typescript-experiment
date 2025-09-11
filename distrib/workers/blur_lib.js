@@ -1,5 +1,5 @@
 const numSigmas = 3; // 3 sigma is precise enough
-function sigmaToRadius(sigma) {
+export function sigmaToRadius(sigma) {
     return Math.ceil(sigma * numSigmas); // length of a shoulder (excluding THIS cell)
 }
 export function makeBlurCoeffs(sigma) {

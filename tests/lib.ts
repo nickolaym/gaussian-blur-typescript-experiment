@@ -6,7 +6,9 @@
 // test('ahaha', ()=>{})
 // test('ohoho', ()=>{})
 
-export type TestFunc = () => Promise<void>
+export type TestFunc = () => (void | Promise<void>)
+export type PrintParamFunc<T> = (param: T) => string
+export type ParamTestFunc<T> = (param: T) => (void | Promise<void>)
 
 export type TestCase = {
     name: string,
@@ -15,6 +17,7 @@ export type TestCase = {
 
 export interface TestCases {
     (name: string, body: TestFunc): void
+    parametrized<T>(name: string, params: T[], print: PrintParamFunc<T>, body: ParamTestFunc<T>): void
     collection:  Array<TestCase>
 }
 
@@ -24,7 +27,18 @@ export function makeTestCases(): TestCases {
     function add(name: string, body: TestFunc) {
         collection.push({name: name, body: body})
     }
+
+    function addParametrized<T>(
+        name: string,
+        params: T[],
+        print: (param: T) => string,
+        body: ParamTestFunc<T>,
+    ) {
+        params.forEach(param => add(`${name} [${print(param)}]`, () => body(param)))
+    }
+
     add.collection = collection
+    add.parametrized = addParametrized
     return add
 }
 

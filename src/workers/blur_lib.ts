@@ -11,7 +11,7 @@ export type BlurCoeffs = Float32Array
 
 const numSigmas = 3  // 3 sigma is precise enough
 
-function sigmaToRadius(sigma: number): number {
+export function sigmaToRadius(sigma: number): number {
     return Math.ceil(sigma * numSigmas)  // length of a shoulder (excluding THIS cell)
 }
 

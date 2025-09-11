@@ -5,7 +5,11 @@ export function makeTestCases() {
     function add(name, body) {
         collection.push({ name: name, body: body });
     }
+    function addParametrized(name, params, print, body) {
+        params.forEach(param => add(`${name} [${print(param)}]`, () => body(param)));
+    }
     add.collection = collection;
+    add.parametrized = addParametrized;
     return add;
 }
 //////////////
